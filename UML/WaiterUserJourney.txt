@@ -1,0 +1,16 @@
+Goal: Manage assigned tables and provide service
+Login as Waiter
+
+As a waiter, I want to log in so I can see my assigned tables and parties.
+View Assigned Tables
+
+As a waiter, I want to see which tables are assigned to me so I know whom to serve.
+View Party Sizes
+
+As a waiter, I want to see the size of each party at my tables to prepare accordingly.
+Mark Table as Available
+
+As a waiter, I want to mark a table as available when a party leaves so it can be reassigned.
+Receive Notifications (Nice to Have)
+
+As a waiter, I want to receive notifications when a new party is assigned to me so I can greet them promptly.

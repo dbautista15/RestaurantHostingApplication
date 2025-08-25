@@ -1,0 +1,114 @@
+SYSTEM ARCHITECTURE DESIGN QUESTIONS
+
+=== DEPLOYMENT & PLATFORM ===
+1. Will this be a web app, mobile app, or both? 
+will be a web app used on the ipads at work
+2. How many restaurants/locations need to be supported?
+just the one i work at
+3. How many concurrent users are expected (hosts + waiters)?
+give or take around 15 workers on the clock it will vary but i think up to around 15 is a good number to start
+4. What's the expected peak usage time and load?
+busy restaurant at night but especially on the weekends 
+5. Do you need offline capability when internet is down?
+it would be nice to have but for the mvp no
+
+=== DATA & DATABASE ===
+6. What database type fits best (SQL vs NoSQL)?
+Document database (DynamoDB or MongoDB) - high read/write volume during busy periods, good for table assignment tracking and real-time updates
+7. How long should historical data be retained?
+30 days in operational database, 1+ year in separate audit database for dispute resolution
+8. Do you need real-time updates across all devices?
+yes i do this is was the reason that made me look into graphql as it fits very well for this use case 
+9. What's the data backup and recovery strategy?
+Dual database approach - operational DB for current shift, audit DB for immutable log storage with daily backups
+10. How will you handle data synchronization between devices?
+GraphQL with websockets for real-time updates and synchronization across devices
+
+=== INTEGRATION ===
+11. Which POS systems need integration (Square, Toast, etc.)?
+no integration
+12. Do you need to integrate with reservation systems?
+no
+13. Are there existing restaurant management tools to connect with?
+there is but we will not be worried about connecting to them
+14. What APIs will you need to expose or consume?
+REST/GraphQL endpoints:
+- POST /auth/login (employee authentication)
+- GET/PUT /tables/{id} (table status updates)
+- POST /waitlist (add party to waitlist)
+- GET /waiters/{id}/assignments (current table assignments)
+- WebSocket endpoints for real-time notifications
+- GET /audit/recent (activity feed for transparency)
+
+=== SECURITY & AUTHENTICATION ===
+15. How will user roles and permissions be managed?
+Role-based access control - hosts can assign tables/waiters, waiters can only update their assigned table status
+16. What authentication method (local accounts, SSO, etc.)?
+JWT for authentication with shift-based access control - host opens app at shift start, staff login with clock numbers during shift hours
+17. How will sensitive data be encrypted?
+bcrypt for any password hashing, JWT tokens for session management
+18. What audit logging is required?
+Non-repudiation logging - WHO (employee ID), WHAT (action), WHEN (timestamp), WHY (reason for overrides), WHERE (device/section). Visible to all staff for transparency, stored in separate audit database
+
+=== REAL-TIME FEATURES ===
+19. How will real-time notifications be implemented?
+WebSocket connections for instant table assignments and status updates
+20. What happens when devices lose connection temporarily?
+Show last known state with "offline" indicator, queue actions for sync when reconnected
+21. How will you handle conflicting updates (two hosts updating same table)?
+Database-level locking with "last writer wins" conflict resolution and audit trail
+22. What's the acceptable latency for status updates?
+Under 500ms for table status changes during peak hours
+
+=== SCALABILITY & PERFORMANCE ===
+23. How will the system scale as restaurants are added?
+Single restaurant focus for MVP - will address multi-tenant architecture later
+24. What caching strategy will be used?
+Cache frequently accessed data like table layouts and current assignments in Redis
+25. How will you handle peak dinner rush loads?
+Simplified load balancing algorithm for MVP (round-robin with table limits), complex state space/backtracking algorithms for future versions
+26. What monitoring and alerting is needed?
+Basic performance monitoring and error logging, deploy early and often to learn system behavior
+
+=== USER INTERFACE ===
+27. Will there be separate interfaces for hosts vs waiters?
+yes - host interface for assignments and waitlist, waiter interface for table status updates
+28. Do you need a central admin panel for restaurant managers?
+no - keeping managers out of the system intentionally
+29. How will the UI work on different screen sizes (phone, tablet, desktop)?
+Responsive design focused on iPad optimization since that's the primary device
+30. What accessibility requirements need to be met?
+Basic accessibility for MVP, comprehensive accessibility features for later versions
+
+=== BUSINESS LOGIC ===
+31. How will table assignment algorithms work (round-robin, load balancing)?
+Load balancing with simple rules for MVP - max tables per waiter, rotate assignments fairly
+32. What rules govern party-to-waiter assignments?
+- Maximum 4-5 tables per waiter
+- Fair rotation to ensure tip distribution
+- Consider experience levels for large parties
+- Account for section assignments
+33. How will you prevent double-booking or conflicts?
+Business rule validation (like chess illegal moves) - prevent obviously wrong assignments, require justification for overrides
+34. What happens when a waiter goes on break or leaves shift?
+Redistribute their tables among remaining waiters using load balancing algorithm
+
+=== TESTING & EDGE CASES ===
+35. What edge cases need testing for user misbehavior?
+- Multiple simultaneous table assignments
+- Rapid-fire button clicking
+- Fake entries and pranks by staff
+- System abuse during busy periods
+36. How will you prevent system abuse?
+- Rate limiting on critical actions
+- Input validation with reasonable limits
+- Confirmation dialogs for destructive actions
+- Audit trail visibility for accountability
+37. What's the disaster recovery plan during dinner rush?
+- Graceful error handling
+- Quick system reset capabilities
+- Backup manual processes documented
+38. How do you handle data corruption or system failures?
+- Immutable audit logs
+- Point-in-time recovery from backups
+- Manual override capabilities for hosts

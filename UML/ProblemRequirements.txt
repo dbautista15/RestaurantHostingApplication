@@ -1,0 +1,31 @@
+problem: the restaurant where i work at has a very high turnover rate with front of house staff. Affecting the waiters with unfair and incorrect seating and distribution of parties and party sizes
+
+soltuion: create an application that helps the front of house staff manage seating and party distrribution more effectively
+
+actors: hosts, waiters
+
+use cases: 
+- assign parties to tables
+- assign parties to waiters
+
+- keep track of which tables belong to which waiters
+- keep track of party sizes
+- keep records of tables this includes :
+  - view assigned tables per waiter
+  - view party sizes per waiter
+  - view assigned grat tables
+
+- view open tables
+
+must have: 
+- user authentication for hosts and waiters ( login )
+- CRUD operations for parties on the wait (waitlist management)
+- ability to reassign parties to different tables or waiters ( notebook )
+- keep track of how many tables each waiter has (replaces notebook )
+- ability to mark tables as available ( waiters screen for available ) 
+- ability to mark table as occupied ( hosts screen for occupied when tables is assigned)
+
+nice to have: 
+- notifications for waiters when a party is assigned to them
+- analytics dashboard for hosts to view turnover rates and party distribution
+- integration with restaurants POS system for realtime updates on table status

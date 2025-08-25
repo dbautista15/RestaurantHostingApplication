@@ -1,0 +1,28 @@
+Goal: Efficiently seat parties and manage table assignments
+Login as Host
+
+As a host, I want to log in so that I can access the seating management features.
+View Open Tables
+
+As a host, I want to see which tables are available so I can assign parties efficiently.
+Manage Waitlist
+
+As a host, I want to add, edit, or remove parties from the waitlist so I can keep track of waiting guests.
+Assign Parties to Tables
+
+As a host, I want to assign a party to a table so that guests can be seated.
+Assign Parties to Waiters
+
+As a host, I want to assign a party to a waiter so that service is distributed fairly.
+Mark Table as Occupied
+
+As a host, I want to mark a table as occupied when a party is seated so that others know it’s unavailable.
+Reassign Parties
+
+As a host, I want to reassign parties to different tables or waiters if needed for better distribution.
+View Analytics (Nice to Have)
+
+As a host, I want to view analytics on turnover rates and party distribution to improve operations.
+POS Integration (Nice to Have)
+
+As a host, I want real-time updates on table status from the POS system for accurate information.
