@@ -31,7 +31,7 @@ const connectDatabase = async () => {
     // HINT: Connection string should come from process.env.MONGODB_URI
     // HINT: Consider connection options like maxPoolSize, serverSelectionTimeoutMS
 
-    const connectionString = process.env.MONGOD_URI || "Error: MONGOD_URI is not defined inside the .env file.";
+    const connectionString = process.env.MONGODB_URI || "Error: MONGODB_URI is not defined inside the .env file.";
     await mongoose.connect(connectionString)
     //log any errors after the initial connection has been established. 
     console.log('Connected to MongoDB successfully');
@@ -39,17 +39,13 @@ const connectDatabase = async () => {
     // TODO: Set up connection event listeners
     // HINT: mongoose.connection has 'error', 'disconnected', 'reconnected' events
     // YOUR CODE HERE:
-    // here I believe it will attempt to reconnect
+    mongoose.connection.on('disconnected',()=>console.log('Disconnected'));
     mongoose.connection.on('reconnected',()=>console.log('reconnected'));
-    mongoose.connection.on('error',err =>{
-      logError(err);
-    });
   } catch (error) {
     // TODO: Implement proper error handling
     // ENGINEERING DECISION: Should server exit or keep retrying?
     // YOUR CODE HERE:
     console.error('MongoDB connection failed:and exited the node.js process with a code of 1.', error.message);
-    handleError(error); // to handle initial connection errors.
     process.exit(1);
   }
 };
@@ -57,7 +53,7 @@ const connectDatabase = async () => {
 // TODO: Optional - Implement graceful shutdown
 const closeDatabase = async () => {
   // YOUR CODE HERE: Close mongoose connection   
-  mongoose.disconnect(); 
+  await mongoose.connection.close(); 
 };
 
 module.exports = { connectDatabase, closeDatabase };
@@ -77,3 +73,16 @@ module.exports = { connectDatabase, closeDatabase };
  * - Timeout values for restaurant environment (fast responses needed)
  * - Monitoring and alerting for production deployment
  */
+
+// Test the connection when running file directly
+if (require.main === module) {
+  connectDatabase()
+    .then(() => {
+      console.log('✅ Database test completed successfully');
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error('❌ Database test failed:', error.message);
+      process.exit(1);
+    });
+}
