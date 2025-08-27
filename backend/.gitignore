@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Logs
+logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+
+# Build outputs (depends on your setup)
+dist/
+build/
+
+# Database files (if using local DB)
+*.db
+*.sqlite
+
+# OS generated files
+.DS_Store
+Thumbs.db
