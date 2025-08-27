@@ -1,6 +1,6 @@
 // backend/config/database.js
+require('dotenv').config();
 const mongoose = require('mongoose');
-
 /**
  * 🎯 YOUR ENGINEERING TASK: Database Connection Management
  * 
@@ -30,29 +30,34 @@ const connectDatabase = async () => {
     // HINT: Use mongoose.connect() with proper options
     // HINT: Connection string should come from process.env.MONGODB_URI
     // HINT: Consider connection options like maxPoolSize, serverSelectionTimeoutMS
-    
-    // YOUR CODE HERE:
-    // const mongoUri = process.env.MONGODB_URI || '???';
-    // await mongoose.connect(mongoUri, { ??? });
-    
-    console.log('✅ Connected to MongoDB successfully');
-    
+
+    const connectionString = process.env.MONGOD_URI || "Error: MONGOD_URI is not defined inside the .env file.";
+    await mongoose.connect(connectionString)
+    //log any errors after the initial connection has been established. 
+    console.log('Connected to MongoDB successfully');
+
     // TODO: Set up connection event listeners
     // HINT: mongoose.connection has 'error', 'disconnected', 'reconnected' events
     // YOUR CODE HERE:
-    
+    // here I believe it will attempt to reconnect
+    mongoose.connection.on('reconnected',()=>console.log('reconnected'));
+    mongoose.connection.on('error',err =>{
+      logError(err);
+    });
   } catch (error) {
     // TODO: Implement proper error handling
     // ENGINEERING DECISION: Should server exit or keep retrying?
     // YOUR CODE HERE:
-    
-    console.error('❌ MongoDB connection failed:', error.message);
+    console.error('MongoDB connection failed:and exited the node.js process with a code of 1.', error.message);
+    handleError(error); // to handle initial connection errors.
+    process.exit(1);
   }
 };
 
 // TODO: Optional - Implement graceful shutdown
 const closeDatabase = async () => {
-  // YOUR CODE HERE: Close mongoose connection
+  // YOUR CODE HERE: Close mongoose connection   
+  mongoose.disconnect(); 
 };
 
 module.exports = { connectDatabase, closeDatabase };
