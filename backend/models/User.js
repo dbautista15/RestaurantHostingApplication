@@ -25,36 +25,59 @@ const userSchema = new mongoose.Schema({
   // REQUIREMENTS: String, unique, required (like "H001", "W001")
   // HINT: This is how staff identify themselves at login
   // YOUR CODE HERE:
-  
+  clockInNumber:{
+	type:Number,
+	required:true,
+	unique:true
+  },
   // TODO: Define name field
   // REQUIREMENTS: String, required
   // YOUR CODE HERE:
-  
+  name:{
+	type:String,
+	required:true
+  },
   // TODO: Define role field
   // REQUIREMENTS: String, enum of ['host', 'waiter', 'manager'], required
   // HINT: This determines what actions users can perform
   // YOUR CODE HERE:
-  
+  role:{
+	type:String,
+	required:true,
+	enum:['host','waiter']
+  },
   // TODO: Define section field
   // REQUIREMENTS: String, enum of ['A', 'B', 'C'], optional (only for waiters)
   // HINT: Waiters are assigned to specific restaurant sections
   // YOUR CODE HERE:
-  
+  section:{
+	type:Number,
+	min:1,
+	max:7
+  },
   // TODO: Define passwordHash field
   // REQUIREMENTS: String, required
   // ENGINEERING NOTE: Never store plain text passwords!
   // YOUR CODE HERE:
-  
+  passwordHash:{
+	type:String,
+	required:true
+  },
   // TODO: Define isActive field
   // REQUIREMENTS: Boolean, default true
   // HINT: Allows disabling users without deleting them
   // YOUR CODE HERE:
-  
+  isActive:{
+	type:Boolean,
+	default:true
+  },
   // TODO: Define shiftStart field
   // REQUIREMENTS: Date, optional
   // HINT: Track when user started their current shift
   // YOUR CODE HERE:
-  
+  shiftStart:{
+	type:Date
+  }
 }, {
   timestamps: true, // Adds createdAt and updatedAt
   toJSON: { 
@@ -63,6 +86,7 @@ const userSchema = new mongoose.Schema({
       // TODO: Remove password from JSON output for security
       // HINT: delete ret.passwordHash;
       // YOUR CODE HERE:
+	  delete ret.passwordHash;
       return ret;
     }
   }
@@ -72,6 +96,15 @@ const userSchema = new mongoose.Schema({
 // ENGINEERING CONCEPT: Computed properties that aren't stored in database
 // EXAMPLE: isOnShift, shiftDuration, displayName
 // YOUR CODE HERE:
+userSchema.virtual('isOnShift').get(function() {
+	return !!this.shiftStart;
+});
+userSchema.virtual('displayName').get(function() {
+	return `${this.name} (${this.role})`;
+});
+userSchema.virtual('shiftDuration').get(function(){
+return Math.floor((new Date() - this.shiftStart) / (1000 * 60));
+});
 
 // TODO: Add pre-save middleware for password hashing
 // ENGINEERING CONCEPT: Middleware runs before save operations
@@ -82,7 +115,9 @@ userSchema.pre('save', async function(next) {
   // 2. Hash the password using bcrypt
   // 3. Replace plain text with hash
   // HINT: Use bcrypt.hash() with saltRounds of 10
-  
+ if(this.isModified('passwordHash')){
+	this.passwordHash = await bcrypt.hash(this.passwordHash,10);
+} 
   next();
 });
 
@@ -95,18 +130,23 @@ userSchema.methods.verifyPassword = async function(candidatePassword) {
   // HINT: Use bcrypt.compare()
   // RETURN: Boolean (true if passwords match)
   // YOUR CODE HERE:
+	return await bcrypt.compare(candidatePassword,this.passwordHash);
 };
 
 // Method to start a shift
 userSchema.methods.startShift = function() {
   // TODO: Set shiftStart to current time
   // YOUR CODE HERE:
+  if(!this.shiftStart){
+	this.shiftStart = new Date;
+  }
+
 };
 
 // Method to end shift
 userSchema.methods.endShift = function() {
   // TODO: Clear shiftStart field
-  // YOUR CODE HERE:
+	this.shiftStart = null;
 };
 
 // TODO: Add static methods (called on User model)
@@ -117,12 +157,14 @@ userSchema.statics.findActiveByRole = function(role) {
   // TODO: Find users with specific role who are active
   // YOUR CODE HERE:
   // return this.find({ role, isActive: true });
+  return this.find({role,isActive:true,})
 };
 
 // Find waiters in a specific section
 userSchema.statics.findWaitersInSection = function(section) {
   // TODO: Find active waiters assigned to a section
   // YOUR CODE HERE:
+  return this.find({role:'waiter',isActive:true,section})
 };
 
 // TODO: Add indexes for query performance
