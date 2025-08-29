@@ -103,6 +103,7 @@ userSchema.virtual('displayName').get(function() {
 	return `${this.name} (${this.role})`;
 });
 userSchema.virtual('shiftDuration').get(function(){
+  if(!this.shiftStart) return 0;
 return Math.floor((new Date() - this.shiftStart) / (1000 * 60));
 });
 
@@ -172,6 +173,10 @@ userSchema.statics.findWaitersInSection = function(section) {
 // HINT: What queries will you run most often?
 // EXAMPLE: Finding by clock number (login), finding by role, finding by section
 // YOUR CODE HERE:
+userSchema.index({clockInNumber:1});
+userSchema.index({role:1,isActive:1});
+userSchema.index({role:1,section:1,isActive:1});
+
 
 const User = mongoose.model('User', userSchema);
 
