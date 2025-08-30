@@ -44,21 +44,21 @@ const authenticateToken = async (req, res, next) => {
     // HINT: Format is "Bearer <token>"
     // HINT: Use req.headers['authorization']
     // YOUR CODE HERE:
-    
+
     // TODO: Check if token exists
     // RETURN: 401 status with error message if no token
     // YOUR CODE HERE:
-    
+
     // TODO: Verify JWT token
     // HINT: Use jwt.verify() with your secret
     // HINT: Handle JWT errors (expired, malformed, etc.)
     // YOUR CODE HERE:
-    
+
     // TODO: Look up user in database
     // HINT: Use decoded.userId to find user
     // HINT: Check user exists and isActive
     // YOUR CODE HERE:
-    
+
     // TODO: Attach user to request object
     // HINT: req.user = user;
     // YOUR CODE HERE:
