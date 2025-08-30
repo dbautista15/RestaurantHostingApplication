@@ -14,41 +14,49 @@ const waitlistEntrySchema = new mongoose.Schema({
   // TODO: Define party details
   // REQUIREMENTS: partyName (String), partySize (Number), phoneNumber (String, optional)
   // YOUR CODE HERE:
-  partyDetails:{
-    Type:String,
-    partyName:String,
-    partySiz:Number,
-    phoneNumber:Number
+    partyName:{
+      type:String,
+      required:true,
+    },
+    partySize:{
+      type:Number,
+      required:true,
+      min:1
+    },
+    phoneNumber:{
+      type:String
     },
   // TODO: Define wait time estimation
   // REQUIREMENTS: estimatedWait (Number, minutes)
   // YOUR CODE HERE:
-  waitTime:{
-    type:Number,
-    estimatedWait:Number
-  },
+  estimatedWait:{
+      type:Number
+    },
   // TODO: Define priority system
-  // REQUIREMENTS: priority enum ('normal', 'vip', 'large_party')
+  // REQUIREMENTS: priority enum ('normal', 'coworker', 'large_party')
   // YOUR CODE HERE:
-  prioritySystem:{
+  priority:{
     type:String,
     enum:['normal','large_party','coworker']
   },
   // TODO: Define status tracking
   // REQUIREMENTS: status enum ('waiting', 'seated', 'cancelled', 'no_show')
   // YOUR CODE HERE:
-  statusTracking:{
+  status:{
     type:String,
-    enum:['waiting','seated','cancelled','no-show']
+    enum:['waiting','seated','cancelled','no-show'],
+    default: 'waiting'  // Add default
   },
   // TODO: Define who added the entry
   // REQUIREMENTS: addedBy reference to User model
   // YOUR CODE HERE:
   addedBy:{
-    addedAt:Date,
     type:mongoose.Schema.Types.ObjectId,
     ref:'User'
-  }
+  },
+  seatedAt:{
+    type: Date
+  },
 }, {
   timestamps: true
 });
@@ -58,23 +66,22 @@ const waitlistEntrySchema = new mongoose.Schema({
 waitlistEntrySchema.virtual('actualWaitTime').get(function() {
   // TODO: Calculate minutes since addedAt
   // YOUR CODE HERE:
-  return Math.floor((new Date()-this.addedAt)/(1000*60));
+  return Math.floor((new Date() - this.createdAt) / (1000 * 60));
 });
 
 // TODO: Add methods for waitlist operations
 waitlistEntrySchema.methods.seat = async function() {
   // TODO: Mark as seated and set timestamp
   // YOUR CODE HERE:
-  timestamp = Date.now;
-  this.statusTracking = 'seated';
+  this.seatedAt = Date.now();
+  this.status = 'seated';
   return await this.save();
 };
 
 waitlistEntrySchema.methods.cancel = async function(reason) {
   // TODO: Mark as cancelled
   // YOUR CODE HERE:
-  timestamp = Date.now;
-  this.statusTracking = 'cancelled';
+  this.status = 'cancelled';
   return await this.save();
 };
 
@@ -82,7 +89,7 @@ waitlistEntrySchema.methods.cancel = async function(reason) {
 waitlistEntrySchema.statics.getActiveWaitlist = function() {
   // TODO: Get all waiting parties ordered by priority and time
   // YOUR CODE HERE:
-  return this.find({waitTime,prioritySystem});
+  return this.find({ status: 'waiting' }).sort({ priority: -1, createdAt: 1 });
 };
 
 const WaitlistEntry = mongoose.model('WaitlistEntry', waitlistEntrySchema);
