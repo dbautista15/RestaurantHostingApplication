@@ -74,7 +74,7 @@ const authenticateToken = async (req, res, next) => {
     if(!user.isActive){
       return res.status(403).json({
         error: 'Access denied',
-        message: ' Account is deactivated'
+        message: ' Account is not active/deactivated'
       });
     }
     // TODO: Attach user to request object
