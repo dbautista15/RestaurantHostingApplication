@@ -44,34 +44,68 @@ const authenticateToken = async (req, res, next) => {
     // HINT: Format is "Bearer <token>"
     // HINT: Use req.headers['authorization']
     // YOUR CODE HERE:
-
+    const authHeader = req.headers['authorization'];
+    if(!authHeader || !authHeader.startsWith('Bearer ')){
+      return res.status(401).json({
+        error: 'Access Denied',
+        message: 'No token provided or invalid format'
+      });
+    }
     // TODO: Check if token exists
     // RETURN: 401 status with error message if no token
     // YOUR CODE HERE:
-
+    const token = authHeader.subString(7); // "Bearer ".length = 7 
     // TODO: Verify JWT token
     // HINT: Use jwt.verify() with your secret
     // HINT: Handle JWT errors (expired, malformed, etc.)
     // YOUR CODE HERE:
-
+    const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
     // TODO: Look up user in database
     // HINT: Use decoded.userId to find user
     // HINT: Check user exists and isActive
     // YOUR CODE HERE:
-
+    const user = await User.findById(decoded.userId);
+    if(!user){
+      return res.status(403).json({
+        error: 'Access Denied',
+        message: 'User not found'
+      });
+    }
+    if(!user.isActive){
+      return res.status(403).json({
+        error: 'Access denied',
+        message: ' Account is deactivated'
+      });
+    }
     // TODO: Attach user to request object
     // HINT: req.user = user;
     // YOUR CODE HERE:
-    
+    req.user = user;
     // TODO: Continue to next middleware
     // YOUR CODE HERE:
-    
+    next();
   } catch (error) {
     // TODO: Handle different types of errors
     // ENGINEERING DECISION: What status codes for what errors?
     // JWT errors vs database errors vs user not found
     // YOUR CODE HERE:
-    
+    if(error.name === 'TokenExpiredError'){
+      return res.status(401).json({
+        error: 'Token expired',
+        message: 'Please log in again'
+      });
+    }
+    if(error.name === 'JsonWebTokenError'){
+      return res.status(403).json({
+        error: 'Invalid token',
+        message: 'Token is malformed or invalid'
+      });
+    }
+    console.error('Authentication error:', error);
+    return res.status(500).json({
+      error:'Internal server error',
+      message: 'Authentication service unavailable'
+    });
   }
 };
 
@@ -88,21 +122,37 @@ const authenticateToken = async (req, res, next) => {
  * 4. Assume authenticateToken already ran (req.user exists)
  */
 const requireRole = (allowedRoles) => {
+  //validate input
+  if(!Array.isArray(allowedRoles) || allowedRoles.length === 0){
+    throw new Error('requireRole: allowedRoles must be a non-empty array');
+  }
+
   return (req, res, next) => {
     // TODO: Validate input
     // HINT: What if allowedRoles is empty or req.user doesn't exist?
     // YOUR CODE HERE:
-    
+    if(!req.user){
+      return res.status(401).json({
+        error: 'Authentication required',
+        message: 'User not authenticated'
+      });
+    }
     // TODO: Check if user role is in allowed roles
     // HINT: Array.includes() or Array.some()
     // YOUR CODE HERE:
-    
+    if(!allowedRoles.includes(req.user.role)){
+      return res.status(403).json({
+        error: 'Insufficient permissions',
+        message:`Access denied. Required role(s): ${allowedRoles.join(', ')}. Your role: ${req.user.role}`
+      })
+    }
     // TODO: Handle insufficient permissions
     // RETURN: 403 status with descriptive error
     // YOUR CODE HERE:
     
     // TODO: Continue if authorized
     // YOUR CODE HERE:
+    next();
   };
 };
 
@@ -122,7 +172,16 @@ const requestLogger = (req, res, next) => {
   // HINT: timestamp, method, url, user info, IP address
   // ENGINEERING DECISION: What's worth logging vs performance cost?
   // YOUR CODE HERE:
-  
+  const timeStamp = new Date().toISOString();
+  const method = req.method;
+  const url = req.url;
+  const userAgent = req.header['user-agent'] || 'Unknown';
+  const ip = req.ip || req.connection.remoteAddress || 'Unknown';
+  // log user info if available ( after authentication)
+  const userId = req.user ? req.user._id: 'Anonymous';
+  const userRole = req.user ? req.user.role : 'N/A';
+  console.log(`[${timeStamp}] ${method} ${url} - User: ${userId} (${userRole}) - IP: ${ip} - UA: ${userAgent}`);
+
   next();
 };
 
