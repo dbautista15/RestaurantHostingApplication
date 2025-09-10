@@ -3,6 +3,7 @@ const express = require('express');
 const Table = require('../models/Table');
 const AuditEvent = require('../models/AuditEvent');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const { validateLogin, validateTableStateUpdate } = require('./middleware/validation');
 
 const router = express.Router();
 

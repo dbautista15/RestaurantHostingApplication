@@ -3,6 +3,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { authenticateToken } = require('../middleware/auth');
+const { validateLogin, validateTableStateUpdate } = require('./middleware/validation');
 
 const router = express.Router();
 

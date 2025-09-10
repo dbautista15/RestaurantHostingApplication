@@ -2,6 +2,7 @@
 const express = require('express');
 const WaitlistEntry = require('../models/WaitlistEntry');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const { validateLogin, validateTableStateUpdate } = require('./middleware/validation');
 
 const router = express.Router();
 
