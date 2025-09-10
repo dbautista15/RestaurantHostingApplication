@@ -54,7 +54,7 @@ const authenticateToken = async (req, res, next) => {
     // TODO: Check if token exists
     // RETURN: 401 status with error message if no token
     // YOUR CODE HERE:
-    const token = authHeader.subString(7); // "Bearer ".length = 7 
+    const token = authHeader.substring(7); // "Bearer ".length = 7 
     // TODO: Verify JWT token
     // HINT: Use jwt.verify() with your secret
     // HINT: Handle JWT errors (expired, malformed, etc.)
@@ -175,7 +175,7 @@ const requestLogger = (req, res, next) => {
   const timeStamp = new Date().toISOString();
   const method = req.method;
   const url = req.url;
-  const userAgent = req.header['user-agent'] || 'Unknown';
+  const userAgent = req.headers['user-agent'] || 'Unknown';
   const ip = req.ip || req.connection.remoteAddress || 'Unknown';
   // log user info if available ( after authentication)
   const userId = req.user ? req.user._id: 'Anonymous';
