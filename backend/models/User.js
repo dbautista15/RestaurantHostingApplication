@@ -26,9 +26,16 @@ const userSchema = new mongoose.Schema({
   // HINT: This is how staff identify themselves at login
   // YOUR CODE HERE:
   clockInNumber:{
-	type:Number,
+	type:String,
 	required:true,
-	unique:true
+	unique:true,
+  trim:true,
+  uppercase:true,   
+   validator: function(v) {
+      // Allow formats like: H001, W042, 123, etc.
+      return /^[A-Z]?\d{2,4}$/.test(v);
+    },
+    message: 'Use your number that you use to clock in at work'
   },
   // TODO: Define name field
   // REQUIREMENTS: String, required
