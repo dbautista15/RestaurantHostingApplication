@@ -7,10 +7,9 @@ const mongoose = require('mongoose');
 // TODO: Import your database connection
 // YOUR CODE HERE:
 const { connectDatabase, closeDatabase } = require('./config/database');
-
 // TODO: Import your route handlers (will implement later)
 // YOUR CODE HERE:
-// const authRoutes = require('./routes/auth');
+const authRoutes = require('./routes/auth');
 // const tableRoutes = require('./routes/tables');
 // const waitlistRoutes = require('./routes/waitlist');
 
@@ -67,7 +66,7 @@ app.get('/api/health',(req,res)=>{
 // TODO: Set up API routes (will implement these route files later)
 // PATTERN: app.use('/api/auth', authRoutes);
 // YOUR CODE HERE:
-
+app.use('/api/auth',authRoutes);
 // TODO: Set up error handling middleware (should be last)
 // ENGINEERING PATTERN: Global error handler catches all unhandled errors
 // YOUR CODE HERE:

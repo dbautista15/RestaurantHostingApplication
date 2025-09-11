@@ -3,7 +3,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { authenticateToken } = require('../middleware/auth');
-const { validateLogin, validateTableStateUpdate } = require('./middleware/validation');
+const { validateLogin } = require('./middleware/validation');
 const router = express.Router();
 
 /**
@@ -168,7 +168,7 @@ router.post('/logout', authenticateToken, async (req, res) => {
     // HINT: req.user is set by authenticateToken middleware
     // YOUR CODE HERE:
     //middleware dependancy  why req.user exists? authenticatetoken middleware populated it
-    const user = await User.findById(req.user.userId);
+    const user = req.user;
     if(!user){
       return res.status(404).json({
         error:'User not found'
@@ -214,7 +214,7 @@ router.get('/me', authenticateToken, async (req, res) => {
   try {
     // TODO: Get current user from middleware
     // YOUR CODE HERE:
-    const user = await User.findById(req.user.userId);
+    const user = req.user;
     if(!user){
       return res.status(404).json({
         error:'User not found.'
@@ -273,7 +273,7 @@ router.put('/change-password', authenticateToken, async (req, res) => {
       });
     }
 
-    const user = await User.findById(req.user.userId);
+    const user = await User.findById(req.user._id);
     if(!user){
       return res.status(404).json({
         error:'User not found.'
@@ -304,7 +304,7 @@ router.put('/change-password', authenticateToken, async (req, res) => {
     // TODO: Update password (will be hashed by pre-save middleware)
     // YOUR CODE HERE:
     //concept here is about mongoose presave hooks and why just assign? the User model's presave middleware will hash it hopefully lol
-    user.password = newPassword;
+    user.passwordHash = newPassword;
     user.passwordChangedAt = new Date();
 
     // TODO: Save user
@@ -321,6 +321,49 @@ router.put('/change-password', authenticateToken, async (req, res) => {
     // YOUR CODE HERE:
     console.error('Password change error:',error);
     res.status(500).json({ error: 'Password change failed' });
+  }
+});
+router.post('/register',async(req,res)=>{
+  try{
+
+    const {clockInNumber,role,section,password} = req.body;
+    //validation
+    if(!clockInNumber || !role ||!password){
+      return res.status(400).json({
+        error:'Missing required fields',
+        required:['clockInNumber','role','password']
+      });
+    }
+    //check if a user already exists
+    const existingUser = await User.findOne({clockInNumber});
+    if(existingUser){
+      return res.status(409).json({
+        error:'User already exists with this clock in number.'
+      });
+    }
+    //create a new user
+    const newUser = new user({
+      clockInNumber,
+      role,
+      section:role === 'waiter' ? section: null,
+      passwordHash : password // should be hashed by the pre-save middleware
+    });
+    await newUser.save();
+    res.status(201).json({
+      success:true,
+      message:'User created successfully',
+      user:{
+        id: newUser._id,
+        clockInNumber:newUser.clockInNumber,
+        role:newUser.role,
+        section:newUser.section
+      }
+    });
+  }catch(error){
+    console.error('Registration error:',error);
+    res.status(500).json({
+      error:'Registration failed'
+    });
   }
 });
 
