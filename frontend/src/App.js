@@ -1,10 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-// 🎯 COMPLETE WORKING FRONTEND WITH MOCK DATA
-// You can interact with this immediately while you build the real backend
-// All API calls are mocked - YOU will replace with real implementations
-
-// MOCK DATA (Replace with your real API calls)
+// MOCK DATA (Keep existing mock data for table functionality)
 const MOCK_TABLES = {
   1: { id: 1, tableNumber: 1, section: 'A', capacity: 4, state: 'available', assignedWaiter: null, partySize: null },
   2: { id: 2, tableNumber: 2, section: 'A', capacity: 6, state: 'assigned', assignedWaiter: { name: 'Alice', clockNumber: 'W001' }, partySize: 4 },
@@ -32,30 +28,179 @@ const MOCK_ACTIVITY = [
   { id: 3, eventType: 'STATE_TRANSITION', tableNumber: 7, fromState: 'available', toState: 'assigned', user: { name: 'Host Bob' }, timestamp: new Date(Date.now() - 8 * 60000) }
 ];
 
-// LOGIN COMPONENT
-const LoginForm = ({ onLogin }) => {
-  const [clockNumber, setClockNumber] = useState('');
-  const [password, setPassword] = useState('');
+// AUTHENTICATION COMPONENT WITH LOGIN AND REGISTRATION
+const AuthForm = ({ onLogin }) => {
+  const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState(''); // 'success' or 'error'
 
-  const handleSubmit = async (e) => {
+  // Login form state
+  const [loginData, setLoginData] = useState({
+    clockInNumber: '',
+    password: ''
+  });
+
+  // Registration form state
+  const [registerData, setRegisterData] = useState({
+    clockInNumber: '',
+    name: '',
+    role: '',
+    password: '',
+    confirmPassword: ''
+  });
+
+  const showMessage = (text, type = 'error') => {
+    setMessage(text);
+    setMessageType(type);
+    setTimeout(() => {
+      setMessage('');
+      setMessageType('');
+    }, 5000);
+  };
+
+  const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // MOCK LOGIN - YOU WILL REPLACE WITH REAL API CALL
-    setTimeout(() => {
-      if (clockNumber && password) {
-        const mockUser = {
-          id: '1',
-          name: clockNumber.startsWith('H') ? 'Host User' : 'Waiter User',
-          role: clockNumber.startsWith('H') ? 'host' : 'waiter',
-          clockNumber,
-          section: clockNumber.startsWith('W') ? 'A' : null
+    setMessage('');
+
+    try {
+      const response = await fetch('http://localhost:3000/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(loginData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        showMessage('Login successful! Welcome back.', 'success');
+        // Convert response to expected format for existing app
+        const userData = {
+          id: data.user.id,
+          name: data.user.name || `User ${loginData.clockInNumber}`,
+          role: data.user.role,
+          clockNumber: loginData.clockInNumber,
+          section: data.user.section,
+          token: data.token
         };
-        onLogin(mockUser);
+        
+        setTimeout(() => {
+          onLogin(userData);
+        }, 1000);
+      } else {
+        showMessage(data.error || 'Login failed. Please check your credentials.');
       }
+    } catch (error) {
+      console.error('Login error:', error);
+      showMessage('Network error. Please check your connection and try again.');
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setMessage('');
+
+    // Client-side validation
+    if (registerData.password !== registerData.confirmPassword) {
+      showMessage('Passwords do not match.');
+      setIsLoading(false);
+      return;
+    }
+
+    if (registerData.password.length < 6) {
+      showMessage('Password must be at least 6 characters long.');
+      setIsLoading(false);
+      return;
+    }
+
+    if (!registerData.clockInNumber || !registerData.name || !registerData.role) {
+      showMessage('Please fill in all required fields.');
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          clockInNumber: parseInt(registerData.clockInNumber),
+          name: registerData.name,
+          role: registerData.role,
+          password: registerData.password,
+          // Note: Section is not included as it will be assigned during shift start
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        showMessage('Account created successfully! Logging you in...', 'success');
+        
+        // TODO: SECURITY CONSIDERATION - Auto-login after registration
+        // In production, consider requiring admin approval or invitation codes
+        // to prevent unauthorized account creation
+        
+        // Auto-login the newly registered user
+        setTimeout(async () => {
+          try {
+            const loginResponse = await fetch('http://localhost:0/api/auth/login', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                clockInNumber: parseInt(registerData.clockInNumber),
+                password: registerData.password,
+              }),
+            });
+
+            const loginData = await loginResponse.json();
+
+            if (loginResponse.ok) {
+              const userData = {
+                id: loginData.user.id,
+                name: registerData.name,
+                role: registerData.role,
+                clockNumber: registerData.clockInNumber,
+                section: loginData.user.section,
+                token: loginData.token
+              };
+              
+              onLogin(userData);
+            } else {
+              showMessage('Account created but auto-login failed. Please login manually.');
+              setIsLogin(true);
+            }
+          } catch (autoLoginError) {
+            showMessage('Account created but auto-login failed. Please login manually.');
+            setIsLogin(true);
+          }
+        }, 1500);
+      } else {
+        showMessage(data.error || 'Registration failed. Please try again.');
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      showMessage('Network error. Please check your connection and try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const toggleMode = () => {
+    setIsLogin(!isLogin);
+    setMessage('');
+    setLoginData({ clockInNumber: '', password: '' });
+    setRegisterData({ clockInNumber: '', name: '', role: '', password: '', confirmPassword: '' });
   };
 
   return (
@@ -66,48 +211,154 @@ const LoginForm = ({ onLogin }) => {
             Restaurant Seating System
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Sign in to manage tables and seating
+            {isLogin ? 'Sign in to manage tables and seating' : 'Create your staff account'}
           </p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <input
-                type="text"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Clock Number (H001 for host, W001 for waiter)"
-                value={clockNumber}
-                onChange={(e) => setClockNumber(e.target.value)}
-              />
+
+        {/* Message Display */}
+        {message && (
+          <div className={`p-4 rounded-md ${messageType === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+            {message}
+          </div>
+        )}
+
+        {/* Login Form */}
+        {isLogin ? (
+          <form className="mt-8 space-y-6" onSubmit={handleLogin}>
+            <div className="rounded-md shadow-sm -space-y-px">
+              <div>
+                <input
+                  type="number"
+                  required
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                  placeholder="Clock Number (e.g., 001, 002, 003)"
+                  value={loginData.clockInNumber}
+                  onChange={(e) => setLoginData({...loginData, clockInNumber: e.target.value})}
+                />
+              </div>
+              <div>
+                <input
+                  type="password"
+                  required
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                  placeholder="Password"
+                  value={loginData.password}
+                  onChange={(e) => setLoginData({...loginData, password: e.target.value})}
+                />
+              </div>
+            </div>
+            <div className="text-xs text-gray-500 text-center">
+              Use the same clock number you use to login to the POS at work
             </div>
             <div>
-              <input
-                type="password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+              >
+                {isLoading ? 'Signing in...' : 'Sign In'}
+              </button>
             </div>
-          </div>
-          <div>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-            >
-              {isLoading ? 'Signing in...' : 'Sign In'}
-            </button>
-          </div>
-        </form>
+          </form>
+        ) : (
+          /* Registration Form */
+          <form className="mt-8 space-y-6" onSubmit={handleRegister}>
+            <div className="rounded-md shadow-sm space-y-4">
+              <div>
+                <input
+                  type="number"
+                  required
+                  className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                  placeholder="Clock Number (e.g., 001, 002, 003)"
+                  value={registerData.clockInNumber}
+                  onChange={(e) => setRegisterData({...registerData, clockInNumber: e.target.value})}
+                />
+              </div>
+              <div>
+                <input
+                  type="text"
+                  required
+                  className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                  placeholder="Full Name"
+                  value={registerData.name}
+                  onChange={(e) => setRegisterData({...registerData, name: e.target.value})}
+                />
+              </div>
+              <div>
+                <select
+                  required
+                  className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                  value={registerData.role}
+                  onChange={(e) => setRegisterData({...registerData, role: e.target.value})}
+                >
+                  <option value="">Select Role</option>
+                  <option value="host">Host</option>
+                  <option value="waiter">Waiter</option>
+                </select>
+              </div>
+              {/* Show disabled section field for waiters */}
+              {registerData.role === 'waiter' && (
+                <div>
+                  <input
+                    type="text"
+                    disabled
+                    className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-400 bg-gray-100 rounded-md sm:text-sm"
+                    placeholder="Section will be assigned when you start your shift"
+                  />
+                </div>
+              )}
+              <div>
+                <input
+                  type="password"
+                  required
+                  className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                  placeholder="Password (minimum 6 characters)"
+                  value={registerData.password}
+                  onChange={(e) => setRegisterData({...registerData, password: e.target.value})}
+                />
+              </div>
+              <div>
+                <input
+                  type="password"
+                  required
+                  className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                  placeholder="Confirm Password"
+                  value={registerData.confirmPassword}
+                  onChange={(e) => setRegisterData({...registerData, confirmPassword: e.target.value})}
+                />
+              </div>
+            </div>
+            <div className="text-xs text-gray-500 text-center">
+              Use the same clock number you use to login to the POS at work
+            </div>
+            <div>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+              >
+                {isLoading ? 'Creating Account...' : 'Create Account'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Toggle Button */}
+        <div className="text-center">
+          <button
+            onClick={toggleMode}
+            disabled={isLoading}
+            className="text-indigo-600 hover:text-indigo-500 text-sm font-medium disabled:opacity-50"
+          >
+            {isLogin ? "Don't have an account? Create one" : "Already have an account? Sign in"}
+          </button>
+        </div>
       </div>
     </div>
   );
 };
 
-// TABLE GRID COMPONENT
+// TABLE GRID COMPONENT (unchanged from original)
 const TableGrid = ({ tables, onTableAction, userRole }) => {
   const getStateColor = (state) => {
     switch (state) {
@@ -129,14 +380,12 @@ const TableGrid = ({ tables, onTableAction, userRole }) => {
   };
 
   const handleTableAction = (tableId, action, extraData = {}) => {
-    // MOCK ACTION HANDLER - YOU WILL REPLACE WITH REAL API CALLS
     console.log('Table action:', { tableId, action, extraData });
     onTableAction(tableId, action, extraData);
   };
 
   return (
     <div className="space-y-6">
-      {/* Section Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {['A', 'B', 'C'].map(section => {
           const stats = getStatsForSection(section);
@@ -162,7 +411,6 @@ const TableGrid = ({ tables, onTableAction, userRole }) => {
         })}
       </div>
 
-      {/* Table Sections */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {['A', 'B', 'C'].map(section => (
           <div key={section} className="bg-white p-6 rounded-lg shadow">
@@ -186,7 +434,6 @@ const TableGrid = ({ tables, onTableAction, userRole }) => {
                         </div>
                       )}
 
-                      {/* Action Buttons Based on State and Role */}
                       <div className="space-y-1">
                         {userRole === 'host' && table.state === 'available' && (
                           <button
@@ -238,7 +485,7 @@ const TableGrid = ({ tables, onTableAction, userRole }) => {
   );
 };
 
-// WAITLIST COMPONENT
+// WAITLIST COMPONENT (unchanged from original)
 const WaitlistPanel = ({ waitlist, onWaitlistAction, userRole }) => {
   const [newParty, setNewParty] = useState({ name: '', size: '', phone: '' });
 
@@ -347,7 +594,7 @@ const WaitlistPanel = ({ waitlist, onWaitlistAction, userRole }) => {
   );
 };
 
-// ACTIVITY FEED COMPONENT
+// ACTIVITY FEED COMPONENT (unchanged from original)
 const ActivityFeed = ({ activities }) => {
   const getActivityIcon = (eventType) => {
     switch (eventType) {
@@ -407,15 +654,13 @@ const RestaurantApp = () => {
   const [tables, setTables] = useState(MOCK_TABLES);
   const [waitlist, setWaitlist] = useState(MOCK_WAITLIST);
   const [activities, setActivities] = useState(MOCK_ACTIVITY);
-  const [connectionStatus, setConnectionStatus] = useState('connected'); // connected, disconnected, connecting
+  const [connectionStatus, setConnectionStatus] = useState('connected');
 
   // MOCK REAL-TIME UPDATES
   useEffect(() => {
     if (!user) return;
 
-    // Simulate real-time updates every 5 seconds
     const interval = setInterval(() => {
-      // Random table state changes
       if (Math.random() < 0.3) {
         const tableIds = Object.keys(tables);
         const randomTableId = tableIds[Math.floor(Math.random() * tableIds.length)];
@@ -435,11 +680,24 @@ const RestaurantApp = () => {
     console.log('User logged in:', userData);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (user && user.token) {
+      try {
+        await fetch('http://localhost:3000/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${user.token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      } catch (error) {
+        console.error('Logout error:', error);
+      }
+    }
     setUser(null);
   };
 
-  // MOCK TABLE ACTIONS - YOU WILL REPLACE WITH REAL API CALLS
+  // MOCK TABLE ACTIONS
   const handleTableAction = (tableId, action, extraData = {}) => {
     setTables(prev => {
       const newTables = { ...prev };
@@ -502,14 +760,12 @@ const RestaurantApp = () => {
           break;
       }
       
-      // Add to activity feed
       setActivities(prev => [newActivity, ...prev.slice(0, 19)]);
-      
       return newTables;
     });
   };
 
-  // MOCK WAITLIST ACTIONS - YOU WILL REPLACE WITH REAL API CALLS
+  // MOCK WAITLIST ACTIONS
   const handleWaitlistAction = (action, data) => {
     switch (action) {
       case 'add':
@@ -528,13 +784,12 @@ const RestaurantApp = () => {
         
       case 'seat':
         setWaitlist(prev => prev.filter(p => p.id !== data.id));
-        // Could also automatically assign to available table
         break;
     }
   };
 
   if (!user) {
-    return <LoginForm onLogin={handleLogin} />;
+    return <AuthForm onLogin={handleLogin} />;
   }
 
   return (

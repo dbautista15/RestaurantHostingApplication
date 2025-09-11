@@ -3,7 +3,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { authenticateToken } = require('../middleware/auth');
-const { validateLogin } = require('./middleware/validation');
+const { validateLogin } = require('../middleware/validation');
 const router = express.Router();
 
 /**
@@ -342,7 +342,7 @@ router.post('/register',async(req,res)=>{
       });
     }
     //create a new user
-    const newUser = new user({
+    const newUser = new User({
       clockInNumber,
       role,
       section:role === 'waiter' ? section: null,
