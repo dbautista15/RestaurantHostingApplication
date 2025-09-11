@@ -95,9 +95,9 @@ export const getAvailableTablesForParty = (tables, partySize) => {
 };
 
 // Validation helpers
-export const isValidClockNumber = (clockNumber) => {
+export const isValidClockNumber = (clockInNumber) => {
   // Format: H001, W001, M001 (Host, Waiter, Manager)
-  return /^[HWM]\d{3}$/.test(clockNumber);
+  return /^[HWM]\d{3}$/.test(clockInNumber);
 };
 
 export const isValidPhoneNumber = (phone) => {

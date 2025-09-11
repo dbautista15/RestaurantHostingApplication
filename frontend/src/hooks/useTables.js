@@ -26,7 +26,7 @@ export const useTables = (token) => {
     
     try {
       // TODO: Replace mock with real API call
-      const response = await fetch('http://localhost:3001/api/tables', {
+      const response = await fetch('http://localhost:3000/api/tables', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -61,7 +61,7 @@ export const useTables = (token) => {
     
     try {
       // TODO: API call
-      const response = await fetch(`http://localhost:3001/api/tables/${tableId}/state`, {
+      const response = await fetch(`http://localhost:3000/api/tables/${tableId}/state`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

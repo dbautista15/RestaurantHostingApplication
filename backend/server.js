@@ -32,7 +32,7 @@ const authRoutes = require('./routes/auth');
 
 // TODO: Create Express application
 // YOUR CODE HERE:
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3001;
 const app = express();
 
 // TODO: Create HTTP server for Socket.IO integration

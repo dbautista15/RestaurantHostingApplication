@@ -3,16 +3,16 @@ import React, { useState, useEffect } from 'react';
 // MOCK DATA (Keep existing mock data for table functionality)
 const MOCK_TABLES = {
   1: { id: 1, tableNumber: 1, section: 'A', capacity: 4, state: 'available', assignedWaiter: null, partySize: null },
-  2: { id: 2, tableNumber: 2, section: 'A', capacity: 6, state: 'assigned', assignedWaiter: { name: 'Alice', clockNumber: 'W001' }, partySize: 4 },
-  3: { id: 3, tableNumber: 3, section: 'A', capacity: 2, state: 'occupied', assignedWaiter: { name: 'Bob', clockNumber: 'W002' }, partySize: 2 },
+  2: { id: 2, tableNumber: 2, section: 'A', capacity: 6, state: 'assigned', assignedWaiter: { userName: 'Alice', clockInNumber: 'W001' }, partySize: 4 },
+  3: { id: 3, tableNumber: 3, section: 'A', capacity: 2, state: 'occupied', assignedWaiter: { userName: 'Bob', clockInNumber: 'W002' }, partySize: 2 },
   4: { id: 4, tableNumber: 4, section: 'A', capacity: 8, state: 'available', assignedWaiter: null, partySize: null },
   5: { id: 5, tableNumber: 5, section: 'B', capacity: 4, state: 'available', assignedWaiter: null, partySize: null },
-  6: { id: 6, tableNumber: 6, section: 'B', capacity: 6, state: 'assigned', assignedWaiter: { name: 'Carol', clockNumber: 'W003' }, partySize: 3 },
-  7: { id: 7, tableNumber: 7, section: 'B', capacity: 4, state: 'occupied', assignedWaiter: { name: 'Dave', clockNumber: 'W004' }, partySize: 5 },
+  6: { id: 6, tableNumber: 6, section: 'B', capacity: 6, state: 'assigned', assignedWaiter: { userName: 'Carol', clockInNumber: 'W003' }, partySize: 3 },
+  7: { id: 7, tableNumber: 7, section: 'B', capacity: 4, state: 'occupied', assignedWaiter: { userName: 'Dave', clockInNumber: 'W004' }, partySize: 5 },
   8: { id: 8, tableNumber: 8, section: 'B', capacity: 2, state: 'available', assignedWaiter: null, partySize: null },
   9: { id: 9, tableNumber: 9, section: 'C', capacity: 6, state: 'available', assignedWaiter: null, partySize: null },
-  10: { id: 10, tableNumber: 10, section: 'C', capacity: 4, state: 'assigned', assignedWaiter: { name: 'Eve', clockNumber: 'W005' }, partySize: 2 },
-  11: { id: 11, tableNumber: 11, section: 'C', capacity: 8, state: 'occupied', assignedWaiter: { name: 'Frank', clockNumber: 'W006' }, partySize: 6 },
+  10: { id: 10, tableNumber: 10, section: 'C', capacity: 4, state: 'assigned', assignedWaiter: { userName: 'Eve', clockInNumber: 'W005' }, partySize: 2 },
+  11: { id: 11, tableNumber: 11, section: 'C', capacity: 8, state: 'occupied', assignedWaiter: { userName: 'Frank', clockInNumber: 'W006' }, partySize: 6 },
   12: { id: 12, tableNumber: 12, section: 'C', capacity: 4, state: 'available', assignedWaiter: null, partySize: null }
 };
 
@@ -23,9 +23,9 @@ const MOCK_WAITLIST = [
 ];
 
 const MOCK_ACTIVITY = [
-  { id: 1, eventType: 'STATE_TRANSITION', tableNumber: 3, fromState: 'assigned', toState: 'occupied', user: { name: 'Host Alice' }, timestamp: new Date(Date.now() - 2 * 60000) },
-  { id: 2, eventType: 'ASSIGNMENT', tableNumber: 6, user: { name: 'Host Alice' }, waiter: 'Carol', partySize: 3, timestamp: new Date(Date.now() - 5 * 60000) },
-  { id: 3, eventType: 'STATE_TRANSITION', tableNumber: 7, fromState: 'available', toState: 'assigned', user: { name: 'Host Bob' }, timestamp: new Date(Date.now() - 8 * 60000) }
+  { id: 1, eventType: 'STATE_TRANSITION', tableNumber: 3, fromState: 'assigned', toState: 'occupied', user: { userName: 'Host Alice' }, timestamp: new Date(Date.now() - 2 * 60000) },
+  { id: 2, eventType: 'ASSIGNMENT', tableNumber: 6, user: { userName: 'Host Alice' }, waiter: 'Carol', partySize: 3, timestamp: new Date(Date.now() - 5 * 60000) },
+  { id: 3, eventType: 'STATE_TRANSITION', tableNumber: 7, fromState: 'available', toState: 'assigned', user: { userName: 'Host Bob' }, timestamp: new Date(Date.now() - 8 * 60000) }
 ];
 
 // AUTHENTICATION COMPONENT WITH LOGIN AND REGISTRATION
@@ -44,7 +44,7 @@ const AuthForm = ({ onLogin }) => {
   // Registration form state
   const [registerData, setRegisterData] = useState({
     clockInNumber: '',
-    name: '',
+    userName: '',
     role: '',
     password: '',
     confirmPassword: ''
@@ -80,9 +80,9 @@ const AuthForm = ({ onLogin }) => {
         // Convert response to expected format for existing app
         const userData = {
           id: data.user.id,
-          name: data.user.name || `User ${loginData.clockInNumber}`,
+          userName: data.user.userName || `User ${loginData.clockInNumber}`,
           role: data.user.role,
-          clockNumber: loginData.clockInNumber,
+          clockInNumber: loginData.clockInNumber,
           section: data.user.section,
           token: data.token
         };
@@ -119,7 +119,7 @@ const AuthForm = ({ onLogin }) => {
       return;
     }
 
-    if (!registerData.clockInNumber || !registerData.name || !registerData.role) {
+    if (!registerData.clockInNumber || !registerData.userName || !registerData.role) {
       showMessage('Please fill in all required fields.');
       setIsLoading(false);
       return;
@@ -133,7 +133,7 @@ const AuthForm = ({ onLogin }) => {
         },
         body: JSON.stringify({
           clockInNumber: parseInt(registerData.clockInNumber),
-          name: registerData.name,
+          userName: registerData.userName,
           role: registerData.role,
           password: registerData.password,
           // Note: Section is not included as it will be assigned during shift start
@@ -168,9 +168,9 @@ const AuthForm = ({ onLogin }) => {
             if (loginResponse.ok) {
               const userData = {
                 id: loginData.user.id,
-                name: registerData.name,
+                userName: registerData.userName,
                 role: registerData.role,
-                clockNumber: registerData.clockInNumber,
+                clockInNumber: registerData.clockInNumber,
                 section: loginData.user.section,
                 token: loginData.token
               };
@@ -200,7 +200,7 @@ const AuthForm = ({ onLogin }) => {
     setIsLogin(!isLogin);
     setMessage('');
     setLoginData({ clockInNumber: '', password: '' });
-    setRegisterData({ clockInNumber: '', name: '', role: '', password: '', confirmPassword: '' });
+    setRegisterData({ clockInNumber: '', userName: '', role: '', password: '', confirmPassword: '' });
   };
 
   return (
@@ -280,8 +280,8 @@ const AuthForm = ({ onLogin }) => {
                   required
                   className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
                   placeholder="Full Name"
-                  value={registerData.name}
-                  onChange={(e) => setRegisterData({...registerData, name: e.target.value})}
+                  value={registerData.userName}
+                  onChange={(e) => setRegisterData({...registerData, userName: e.target.value})}
                 />
               </div>
               <div>
@@ -429,7 +429,7 @@ const TableGrid = ({ tables, onTableAction, userRole }) => {
                       
                       {table.assignedWaiter && (
                         <div className="text-xs mb-2">
-                          <div>Waiter: {table.assignedWaiter.name}</div>
+                          <div>Waiter: {table.assignedWaiter.userName}</div>
                           <div>Party: {table.partySize}</div>
                         </div>
                       )}
@@ -708,7 +708,7 @@ const RestaurantApp = () => {
       const newActivity = {
         id: Date.now(),
         timestamp: new Date(),
-        user: { name: user.name },
+        user: { userName: user.userName },
         tableNumber: table.tableNumber
       };
 
@@ -717,7 +717,7 @@ const RestaurantApp = () => {
           newTables[tableId] = {
             ...table,
             state: 'assigned',
-            assignedWaiter: { name: extraData.waiterName, clockNumber: extraData.waiterId },
+            assignedWaiter: { userName: extraData.waitername, clockInNumber: extraData.waiterId },
             partySize: extraData.partySize,
             assignedAt: new Date()
           };

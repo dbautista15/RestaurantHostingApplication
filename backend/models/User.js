@@ -33,7 +33,7 @@ const userSchema = new mongoose.Schema({
   // TODO: Define name field
   // REQUIREMENTS: String, required
   // YOUR CODE HERE:
-  name:{
+  userName:{
 	type:String,
 	required:true
   },
@@ -100,7 +100,7 @@ userSchema.virtual('isOnShift').get(function() {
 	return !!this.shiftStart;
 });
 userSchema.virtual('displayName').get(function() {
-	return `${this.name} (${this.role})`;
+	return `${this.userName} (${this.role})`;
 });
 userSchema.virtual('shiftDuration').get(function(){
   if(!this.shiftStart) return 0;

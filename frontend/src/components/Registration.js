@@ -34,7 +34,7 @@ const AuthForm = ({ onLogin }) => {
     setMessage('');
 
     try {
-      const response = await fetch('http://localhost:3001/api/auth/login', {
+      const response = await fetch('http://localhost:3000/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -51,7 +51,7 @@ const AuthForm = ({ onLogin }) => {
           id: data.user.id,
           name: data.user.name || `User ${loginData.clockInNumber}`,
           role: data.user.role,
-          clockNumber: loginData.clockInNumber,
+          clockInNumber: loginData.clockInNumber,
           section: data.user.section,
           token: data.token
         };
@@ -95,7 +95,7 @@ const AuthForm = ({ onLogin }) => {
     }
 
     try {
-      const response = await fetch('http://localhost:3001/api/auth/register', {
+      const response = await fetch('http://localhost:3000/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -121,7 +121,7 @@ const AuthForm = ({ onLogin }) => {
         // Auto-login the newly registered user
         setTimeout(async () => {
           try {
-            const loginResponse = await fetch('http://localhost:3001/api/auth/login', {
+            const loginResponse = await fetch('http://localhost:3000/api/auth/login', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -139,7 +139,7 @@ const AuthForm = ({ onLogin }) => {
                 id: loginData.user.id,
                 name: registerData.name,
                 role: registerData.role,
-                clockNumber: registerData.clockInNumber,
+                clocInkNumber: registerData.clockInNumber,
                 section: loginData.user.section,
                 token: loginData.token
               };

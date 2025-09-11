@@ -14,20 +14,20 @@ const validateLogin = (req, res, next) => {
   const errors = [];
   
   // Sanitize inputs
-  const clockNumber = req.body.clockNumber ? req.body.clockNumber.toString().trim() : '';
+  const clockInNumber = req.body.clockInNumber ? req.body.clockInNumber.toString().trim() : '';
   const password = req.body.password ? req.body.password.toString() : '';
   
-  // Validate clockNumber and password present
-  if (!clockNumber) {
+  // Validate clockInNumber and password present
+  if (!clockInNumber) {
     errors.push({
-      field: 'clockNumber',
+      field: 'clockInNumber',
       message: 'Clock number is required'
     });
   } else {
-    if (!/^\d{3,6}$/.test(clockNumber)) {
+    if (!/^\d{3,6}$/.test(clockInNumber)) {
       errors.push({
-        field: 'clockNumber',
-        message: 'Clock number must be 3-6 digits'
+        field: 'clockInNumber',
+        message: 'Clock-In number must be 3-6 digits'
       });
     }
   }
@@ -57,7 +57,7 @@ const validateLogin = (req, res, next) => {
   }
   
   // Store the sanitized data back to req.body for downstream middleware
-  req.body.clockNumber = clockNumber;
+  req.body.clockInNumber = clockInNumber;
   req.body.password = password;
   
   next();

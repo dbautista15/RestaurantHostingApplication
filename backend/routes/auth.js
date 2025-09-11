@@ -49,6 +49,9 @@ router.post('/login', async (req, res) => {
     // HINT: Use destructuring: const { clockNumber, password } = req.body;
     // YOUR CODE HERE:
     const { clockInNumber, password } = req.body;
+
+    console.log('Login attempt - clockInNumber:', clockInNumber, 'type:', typeof clockInNumber);
+
     // TODO: Validate input
     // RETURN: 400 status if missing required fields
     // YOUR CODE HERE:
@@ -74,6 +77,7 @@ router.post('/login', async (req, res) => {
     //concept here is database query why clockInNumber? because in this business context its the best way to id someone.
     const user = await User.findOne({clockInNumber});
 
+    console.log('User found:', user ? 'YES' : 'NO'); 
 
     // TODO: Check if user account is active
     // RETURN: 403 if user.isActive is false
@@ -326,9 +330,9 @@ router.put('/change-password', authenticateToken, async (req, res) => {
 router.post('/register',async(req,res)=>{
   try{
 
-    const {clockInNumber,role,section,password} = req.body;
+    const {clockInNumber,userName,role,section,password} = req.body;
     //validation
-    if(!clockInNumber || !role ||!password){
+    if(!clockInNumber || !userName || !role ||!password){
       return res.status(400).json({
         error:'Missing required fields',
         required:['clockInNumber','role','password']
@@ -344,6 +348,7 @@ router.post('/register',async(req,res)=>{
     //create a new user
     const newUser = new User({
       clockInNumber,
+      userName,
       role,
       section:role === 'waiter' ? section: null,
       passwordHash : password // should be hashed by the pre-save middleware
@@ -354,6 +359,7 @@ router.post('/register',async(req,res)=>{
       message:'User created successfully',
       user:{
         id: newUser._id,
+        userName:newUser.userName,
         clockInNumber:newUser.clockInNumber,
         role:newUser.role,
         section:newUser.section

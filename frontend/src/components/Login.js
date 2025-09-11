@@ -1,6 +1,6 @@
 // LOGIN COMPONENT
 const LoginForm = ({ onLogin }) => {
-  const [clockNumber, setClockNumber] = useState('');
+  const [clockInNumber, setClockInNumber] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -10,13 +10,13 @@ const LoginForm = ({ onLogin }) => {
 	
 	// MOCK LOGIN - YOU WILL REPLACE WITH REAL API CALL
 	setTimeout(() => {
-	  if (clockNumber && password) {
+	  if (clockInNumber && password) {
 		const mockUser = {
 		  id: '1',
-		  name: clockNumber.startsWith('H') ? 'Host User' : 'Waiter User',
-		  role: clockNumber.startsWith('H') ? 'host' : 'waiter',
-		  clockNumber,
-		  section: clockNumber.startsWith('W') ? 'A' : null
+		  name: clockInNumber.startsWith('H') ? 'Host User' : 'Waiter User',
+		  role: clockInNumber.startsWith('H') ? 'host' : 'waiter',
+		  clockInNumber,
+		  section: clockInNumber.startsWith('W') ? 'A' : null
 		};
 		onLogin(mockUser);
 	  }
@@ -43,8 +43,8 @@ const LoginForm = ({ onLogin }) => {
 				required
 				className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
 				placeholder="Clock Number (H001 for host, W001 for waiter)"
-				value={clockNumber}
-				onChange={(e) => setClockNumber(e.target.value)}
+				value={clockInNumber}
+				onChange={(e) => setClockInNumber(e.target.value)}
 			  />
 			</div>
 			<div>

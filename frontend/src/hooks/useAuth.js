@@ -23,7 +23,7 @@ export const useAuth = () => {
   const [error, setError] = useState(null);
 
   // TODO: Implement login function
-  const login = async (clockNumber, password) => {
+  const login = async (clockInNumber, password) => {
     // YOUR CODE HERE:
     // 1. Set loading state
     // 2. Make POST request to /api/auth/login
@@ -37,10 +37,10 @@ export const useAuth = () => {
     
     try {
       // TODO: Replace this mock with real API call
-      const response = await fetch('http://localhost:3001/api/auth/login', {
+      const response = await fetch('http://localhost:3000/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clockNumber, password })
+        body: JSON.stringify({ clockInNumber, password })
       });
       
       // TODO: Handle response
