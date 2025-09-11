@@ -24,7 +24,8 @@ const waitlistEntrySchema = new mongoose.Schema({
       min:1
     },
     phoneNumber:{
-      type:String
+      type:String,
+      required:true
     },
   // TODO: Define wait time estimation
   // REQUIREMENTS: estimatedWait (Number, minutes)
@@ -42,7 +43,7 @@ const waitlistEntrySchema = new mongoose.Schema({
   // TODO: Define status tracking
   // REQUIREMENTS: status enum ('waiting', 'seated', 'cancelled', 'no_show')
   // YOUR CODE HERE:
-  status:{
+  partyStatus:{
     type:String,
     enum:['waiting','seated','cancelled','no-show'],
     default: 'waiting'  // Add default
@@ -74,14 +75,14 @@ waitlistEntrySchema.methods.seat = async function() {
   // TODO: Mark as seated and set timestamp
   // YOUR CODE HERE:
   this.seatedAt = Date.now();
-  this.status = 'seated';
+  this.partyStatus = 'seated';
   return await this.save();
 };
 
 waitlistEntrySchema.methods.cancel = async function(reason) {
   // TODO: Mark as cancelled
   // YOUR CODE HERE:
-  this.status = 'cancelled';
+  this.partyStatus = 'cancelled';
   return await this.save();
 };
 
@@ -89,7 +90,7 @@ waitlistEntrySchema.methods.cancel = async function(reason) {
 waitlistEntrySchema.statics.getActiveWaitlist = function() {
   // TODO: Get all waiting parties ordered by priority and time
   // YOUR CODE HERE:
-  return this.find({ status: 'waiting' }).sort({ priority: -1, createdAt: 1 });
+  return this.find({ partyStatus: 'waiting' }).sort({ priority: -1, createdAt: 1 });
 };
 
 const WaitlistEntry = mongoose.model('WaitlistEntry', waitlistEntrySchema);

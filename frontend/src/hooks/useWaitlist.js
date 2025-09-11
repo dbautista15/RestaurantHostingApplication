@@ -65,7 +65,7 @@ export const useWaitlist = (token, userRole) => {
       ...partyData,
       addedAt: new Date().toISOString(),
       estimatedWait: Math.floor(Math.random() * 30) + 10, // Mock estimate
-      status: 'waiting'
+      partyStatus: 'waiting'
     };
     
     // TODO: Add optimistic entry to state
