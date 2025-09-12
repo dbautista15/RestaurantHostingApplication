@@ -11,7 +11,7 @@ const { connectDatabase, closeDatabase } = require('./config/database');
 // YOUR CODE HERE:
 const authRoutes = require('./routes/auth');
 // const tableRoutes = require('./routes/tables');
-// const waitlistRoutes = require('./routes/waitlist');
+const waitlistRoutes = require('./routes/waitlist');
 
 /**
  * 🎯 YOUR ENGINEERING TASK: Express Server Setup
@@ -67,10 +67,13 @@ app.get('/api/health',(req,res)=>{
 // PATTERN: app.use('/api/auth', authRoutes);
 // YOUR CODE HERE:
 app.use('/api/auth',authRoutes);
+app.use('/api/waitlist',waitlistRoutes);
 // TODO: Set up error handling middleware (should be last)
 // ENGINEERING PATTERN: Global error handler catches all unhandled errors
 // YOUR CODE HERE:
 
+//making sure the table routes are connected
+app.use('/api/tables',require('./routes/tables'));
 // TODO: Set up Socket.IO connection handling
 // YOUR CODE HERE:
 

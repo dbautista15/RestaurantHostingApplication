@@ -2,7 +2,7 @@
 const express = require('express');
 const WaitlistEntry = require('../models/WaitlistEntry');
 const { authenticateToken, requireRole } = require('../middleware/auth');
-const { validateLogin, validateTableStateUpdate } = require('./middleware/validation');
+const { validateLogin, validateTableStateUpdate } = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -46,7 +46,7 @@ router.post('/', authenticateToken, requireRole(['host']), async (req, res) => {
       });
     }
     //check if the entry has already been added
-    const existingEntry = await User.findOne({phoneNumber});
+    const existingEntry = await WaitlistEntry.findOne({phoneNumber});
     if(existingEntry){
       return res.status(409).json({
         error:'Waitlist entry has already been added, double check real quick'
@@ -91,7 +91,7 @@ router.put('/:id/partyStatus', authenticateToken, requireRole(['host']), async (
         error:'Party status is required'
       });
     }
-    const waitlist = await WaitlistEntry.findByIdAndUpdate(req.waitlist.existingEntry);
+    const waitlist = await WaitlistEntry.findByIdAndUpdate(req.params.id);
     if(!waitlist){
       return res.status(404).json({
         error:'Waitlist entry was not found'
