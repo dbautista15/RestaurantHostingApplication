@@ -1,7 +1,6 @@
 // backend/routes/tables.js
 const express = require('express');
 const Table = require('../models/Table');
-const AuditEvent = require('../models/AuditEvent');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { validateTableStateUpdate } = require('../middleware/validation');
 const { validateCompleteTransition, calculateEstimatedWait } = require('../utils/businessRules');
@@ -45,7 +44,7 @@ router.get('/', authenticateToken, async (req, res) => {
       assignedWaiter: table.assignedWaiter ? {
         id: table.assignedWaiter._id,
         name: table.assignedWaiter.userName,
-        clockNumber: table.assignedWaiter.clockInNumber,
+        clockInNumber: table.assignedWaiter.clockInNumber,
         section: table.assignedWaiter.section
       } : null,
       assignedAt: table.assignedAt,
@@ -237,7 +236,7 @@ router.put('/:id/state', authenticateToken, validateTableStateUpdate, async (req
         assignedWaiter: updatedTable.assignedWaiter ? {
           id: updatedTable.assignedWaiter._id,
           name: updatedTable.assignedWaiter.userName,
-          clockNumber: updatedTable.assignedWaiter.clockInNumber
+          clockInNumber: updatedTable.assignedWaiter.clockInNumber
         } : null,
         lastStateChange: updatedTable.lastStateChange,
         assignedAt: updatedTable.assignedAt

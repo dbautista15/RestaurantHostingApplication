@@ -2,7 +2,6 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
 const Table = require('../models/Table');
-const ShiftConfiguration = require('../models/ShiftConfiguration');
 const SectionConfiguration = require('../models/SectionConfiguration');
 
 /**
@@ -25,13 +24,13 @@ const connectDatabase = async () => {
 // Define ALL your restaurant tables (no fixed sections)
 const ALL_RESTAURANT_TABLES = [
 	// BOOTHS
-	{ tableNumber: 'A2', capacity: 2, position: 'front-window' },
-	{ tableNumber: 'A3', capacity: 4, position: 'front-window' },
-	{ tableNumber: 'A4', capacity: 4, position: 'front-center' },
-	{ tableNumber: 'A5', capacity: 2, position: 'front-center' },
-	{ tableNumber: 'A6', capacity: 6, position: 'front-booth' },
-	{ tableNumber: 'A7', capacity: 6, position: 'front-booth' },
-	{ tableNumber: 'A8', capacity: 6, position: 'front-booth' },
+	{ tableNumber: 'A2', capacity: 2, position: 'right-wall' },
+	{ tableNumber: 'A3', capacity: 4, position: 'right-wall' },
+	{ tableNumber: 'A4', capacity: 4, position: 'right-wall' },
+	{ tableNumber: 'A5', capacity: 2, position: 'right-wall' },
+	{ tableNumber: 'A6', capacity: 6, position: 'right-wall' },
+	{ tableNumber: 'A7', capacity: 6, position: 'right-wall' },
+	{ tableNumber: 'A8', capacity: 6, position: 'right-wall' },
 
 	// Main dining area
 	{ tableNumber: 'A16', capacity: 4, position: 'main-center' },
@@ -39,24 +38,24 @@ const ALL_RESTAURANT_TABLES = [
 	{ tableNumber: 'A14', capacity: 4, position: 'main-center' },
 	{ tableNumber: 'A13', capacity: 4, position: 'main-center' },
 	{ tableNumber: 'A12', capacity: 4, position: 'main-center' },
-	{ tableNumber: 'A11', capacity: 2, position: 'main-wall' },
-	{ tableNumber: 'A10', capacity: 8, position: 'main-large' },
+	{ tableNumber: 'A11', capacity: 2, position: 'main-center' },
+	{ tableNumber: 'A10', capacity: 8, position: 'main-center' },
 	{ tableNumber: 'A9', capacity: 4, position: 'main-center' },
 
 
 	// Back dining area
-	{ tableNumber: 'B1', capacity: 4, position: 'back-center' },
+	{ tableNumber: 'B1', capacity: 4, position: 'back-right' },
 	{ tableNumber: 'B2', capacity: 4, position: 'back-center' },
-	{ tableNumber: 'B6', capacity: 4, position: 'back-corner' },
+	{ tableNumber: 'B6', capacity: 4, position: 'back-lower-right-corner' },
 
 	// BIG TABLES
-	{ tableNumber: 'B3', capacity: 15, position: 'back-booth' },
-	{ tableNumber: 'B5', capacity: 15, position: 'back-corner' },
+	{ tableNumber: 'B3', capacity: 15, position: 'back-left-corner' },
+	{ tableNumber: 'B5', capacity: 15, position: 'back-right-corner' },
 
 ];
 
 // Define shift configurations based on server count
-const SHIFT_CONFIGURATIONS = [
+const SECTION_CONFIGURATIONS = [
 	// Moderate staffing - 3 servers
 	{
 		shiftName: 'four',
@@ -222,21 +221,21 @@ const seedTablesAndConfigurations = async () => {
 		const tables = await Table.insertMany(tablesToCreate);
 		console.log(`Created ${tables.length} tables`);
 
-		console.log('🔧 Creating shift configurations...');
+		console.log(' Creating shift configurations...');
 
 		// Create shift configurations
 		const configs = await SectionConfiguration.insertMany(SECTION_CONFIGURATIONS);
 		console.log(`Created ${configs.length} shift configurations`);
 
 		// Activate the lunch configuration by default
-		const lunchConfig = configs.find(c => c.shiftName === 'six');
-		if (lunchConfig) {
-			lunchConfig.isActive = true;
-			await lunchConfig.save();
+		const sectionConfig = configs.find(c => c.shiftName === 'six');
+		if (sectionConfig) {
+			sectionConfig.isActive = true;
+			await sectionConfig.save();
 			console.log('Activated six server configuration as default');
 
 			// Update table sections based on active configuration
-			await applySectionConfiguration(lunchConfig);
+			await applySectionConfiguration(sectionConfig);
 		}
 
 		console.log('\n Summary:');
@@ -287,7 +286,7 @@ module.exports = {
 	seedTablesAndConfigurations,
 	applySectionConfiguration,
 	ALL_RESTAURANT_TABLES,
-	SHIFT_CONFIGURATIONS
+	SECTION_CONFIGURATIONS
 };
 
 /**

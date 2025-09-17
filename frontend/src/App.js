@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 
-// API base URL - adjust to match your backend
+// Fixed API base URL to match your backend
 const API_BASE = 'http://localhost:3000/api';
 
-// Auth service
+// Auth service - unchanged but fixed
 const authService = {
   async login(clockInNumber, password) {
     const response = await fetch(`${API_BASE}/auth/login`, {
@@ -38,7 +38,7 @@ const authService = {
   }
 };
 
-// API service with auth
+// Complete API service with all required methods
 const apiService = {
   async request(endpoint, options = {}) {
     const token = authService.getToken();
@@ -60,24 +60,21 @@ const apiService = {
     return data;
   },
 
-  // Table endpoints (placeholder for your table API)
-  async getTables() {
-    // Mock data since your tables route isn't fully implemented yet
-    return {
-      tables: [
-        { _id: '1', tableNumber: 'T1', section: 1, capacity: 4, state: 'available' },
-        { _id: '2', tableNumber: 'T2', section: 1, capacity: 2, state: 'occupied' },
-        { _id: '3', tableNumber: 'T3', section: 2, capacity: 6, state: 'available' },
-        { _id: '4', tableNumber: 'T4', section: 2, capacity: 4, state: 'occupied' },
-        { _id: '5', tableNumber: 'T5', section: 3, capacity: 8, state: 'available' },
-        { _id: '6', tableNumber: 'T6', section: 3, capacity: 2, state: 'cleaning' }
-      ]
-    };
+  // Table operations
+  async getTables() { 
+    return this.request('/tables'); 
   },
 
-  // Waitlist endpoints
-  async getWaitlist() {
-    return this.request('/waitlist');
+  async updateTableState(tableId, newState, options = {}) {
+    return this.request(`/tables/${tableId}/state`, {
+      method: 'PUT',
+      body: JSON.stringify({ newState, ...options })
+    });
+  },
+
+  // Waitlist operations
+  async getWaitlist() { 
+    return this.request('/waitlist'); 
   },
 
   async addToWaitlist(partyData) {
@@ -95,13 +92,32 @@ const apiService = {
   },
 
   async removeFromWaitlist(id) {
-    return this.request(`/waitlist/${id}`, {
-      method: 'DELETE'
+    return this.request(`/waitlist/${id}`, { 
+      method: 'DELETE' 
+    });
+  },
+
+  // Shift management operations
+  async getShiftConfigurations() {
+    return this.request('/shifts/configurations');
+  },
+
+  async activateShiftConfiguration(configurationId) {
+    return this.request('/shifts/activate', {
+      method: 'POST',
+      body: JSON.stringify({ configurationId })
+    });
+  },
+
+  async quickShiftSetup(serverCount, options = {}) {
+    return this.request('/shifts/quick-setup', {
+      method: 'POST',
+      body: JSON.stringify({ serverCount, ...options })
     });
   }
 };
 
-// Login Component
+// Login Component - unchanged
 const LoginScreen = ({ onLogin }) => {
   const [clockInNumber, setClockInNumber] = useState('');
   const [password, setPassword] = useState('');
@@ -134,7 +150,7 @@ const LoginScreen = ({ onLogin }) => {
           Restaurant Host
         </h1>
         
-        <div className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Clock Number
@@ -145,6 +161,7 @@ const LoginScreen = ({ onLogin }) => {
               onChange={(e) => setClockInNumber(e.target.value)}
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Enter your clock number"
+              required
             />
           </div>
           
@@ -158,6 +175,7 @@ const LoginScreen = ({ onLogin }) => {
               onChange={(e) => setPassword(e.target.value)}
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Enter your password"
+              required
             />
           </div>
 
@@ -168,25 +186,259 @@ const LoginScreen = ({ onLogin }) => {
           )}
 
           <button
-            onClick={handleSubmit}
+            type="submit"
             disabled={loading || !clockInNumber || !password}
             className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
-        </div>
+        </form>
       </div>
     </div>
   );
 };
 
-// Table Card Component
+// Complete Shift Management Component
+const ShiftSetup = ({ onConfigurationChange }) => {
+  const [configurations, setConfigurations] = useState([]);
+  const [activeConfig, setActiveConfig] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [quickSetupOpen, setQuickSetupOpen] = useState(false);
+  
+  const [quickSetup, setQuickSetup] = useState({
+    serverCount: 2,
+    includePatioArea: false,
+    includeBarArea: true
+  });
+
+  useEffect(() => {
+    loadConfigurations();
+  }, []);
+
+  const loadConfigurations = async () => {
+    try {
+      setLoading(true);
+      const response = await apiService.getShiftConfigurations();
+      setConfigurations(response.configurations);
+      setActiveConfig(response.activeConfiguration);
+    } catch (error) {
+      console.error('Failed to load configurations:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleActivateConfiguration = async (configId) => {
+    try {
+      setLoading(true);
+      const response = await apiService.activateShiftConfiguration(configId);
+      
+      setActiveConfig(response.activeConfiguration);
+      
+      if (onConfigurationChange) {
+        onConfigurationChange(response.tables);
+      }
+      
+      alert(`Activated ${response.activeConfiguration.shiftName} configuration`);
+      
+    } catch (error) {
+      console.error('Failed to activate configuration:', error);
+      alert('Failed to activate configuration');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleQuickSetup = async () => {
+    try {
+      setLoading(true);
+      const response = await apiService.quickShiftSetup(quickSetup.serverCount, {
+        includePatioArea: quickSetup.includePatioArea,
+        includeBarArea: quickSetup.includeBarArea
+      });
+      
+      alert(response.message);
+      await loadConfigurations();
+      setQuickSetupOpen(false);
+      
+      if (onConfigurationChange) {
+        const tablesResponse = await apiService.getTables();
+        onConfigurationChange(tablesResponse.tables);
+      }
+      
+    } catch (error) {
+      console.error('Quick setup failed:', error);
+      alert('Quick setup failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading && configurations.length === 0) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="ml-2">Loading shift configurations...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Current Shift Status */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="font-semibold text-blue-900 mb-2">Current Shift Configuration</h3>
+        {activeConfig ? (
+          <div className="space-y-2">
+            <p className="text-blue-800">
+              <strong>{activeConfig.shiftName}</strong> - {activeConfig.serverCount} server(s)
+            </p>
+            <p className="text-blue-700 text-sm">
+              {activeConfig.activeSections.length} sections active
+            </p>
+            {activeConfig.notes && (
+              <p className="text-blue-600 text-sm italic">{activeConfig.notes}</p>
+            )}
+          </div>
+        ) : (
+          <p className="text-blue-700">No shift configuration is currently active</p>
+        )}
+      </div>
+
+      {/* Quick Setup */}
+      <div className="bg-white rounded-lg border p-4">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="font-semibold text-gray-900">Quick Setup</h3>
+          <button
+            onClick={() => setQuickSetupOpen(!quickSetupOpen)}
+            className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+          >
+            {quickSetupOpen ? 'Cancel' : 'Quick Setup'}
+          </button>
+        </div>
+
+        {quickSetupOpen && (
+          <div className="space-y-4 border-t pt-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                How many servers are working?
+              </label>
+              <select
+                value={quickSetup.serverCount}
+                onChange={(e) => setQuickSetup({...quickSetup, serverCount: parseInt(e.target.value)})}
+                className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500"
+              >
+                {[1,2,3,4,5,6,7,8].map(count => (
+                  <option key={count} value={count}>{count} server{count !== 1 ? 's' : ''}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={quickSetup.includePatioArea}
+                  onChange={(e) => setQuickSetup({...quickSetup, includePatioArea: e.target.checked})}
+                  className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                />
+                <span className="text-sm text-gray-700">Include Patio Area</span>
+              </label>
+
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={quickSetup.includeBarArea}
+                  onChange={(e) => setQuickSetup({...quickSetup, includeBarArea: e.target.checked})}
+                  className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                />
+                <span className="text-sm text-gray-700">Include Bar Area</span>
+              </label>
+            </div>
+
+            <button
+              onClick={handleQuickSetup}
+              disabled={loading}
+              className="w-full bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 disabled:opacity-50 transition-colors"
+            >
+              {loading ? 'Setting up...' : 'Apply Quick Setup'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Available Configurations */}
+      <div className="bg-white rounded-lg border p-4">
+        <h3 className="font-semibold text-gray-900 mb-4">Available Shift Configurations</h3>
+        
+        {configurations.length === 0 ? (
+          <p className="text-gray-500 text-center py-4">
+            No shift configurations available. Run the seeder script to create them.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {configurations.map(config => (
+              <div
+                key={config._id}
+                className={`p-4 rounded-lg border-2 transition-colors ${
+                  config.isActive 
+                    ? 'border-blue-300 bg-blue-50' 
+                    : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
+                }`}
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <h4 className="font-medium text-gray-900 capitalize">
+                      {config.shiftName.replace('-', ' ')}
+                      {config.isActive && (
+                        <span className="ml-2 inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                          Active
+                        </span>
+                      )}
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      {config.serverCount} server{config.serverCount !== 1 ? 's' : ''} • {config.activeSections.length} sections
+                    </p>
+                  </div>
+                  
+                  {!config.isActive && (
+                    <button
+                      onClick={() => handleActivateConfiguration(config._id)}
+                      disabled={loading}
+                      className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                    >
+                      Activate
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
+                  {config.activeSections.map(section => (
+                    <div key={section.sectionNumber}>
+                      Section {section.sectionNumber}: {section.assignedTables.length} tables
+                    </div>
+                  ))}
+                </div>
+
+                {config.notes && (
+                  <p className="text-sm text-gray-500 mt-2 italic">{config.notes}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Table Card Component - unchanged
 const TableCard = ({ table, onStatusChange }) => {
   const getStatusColor = (state) => {
     switch (state) {
       case 'available': return 'bg-green-100 border-green-300 text-green-800';
       case 'occupied': return 'bg-red-100 border-red-300 text-red-800';
-      case 'cleaning': return 'bg-yellow-100 border-yellow-300 text-yellow-800';
+      case 'assigned': return 'bg-yellow-100 border-yellow-300 text-yellow-800';
       default: return 'bg-gray-100 border-gray-300 text-gray-800';
     }
   };
@@ -195,7 +447,7 @@ const TableCard = ({ table, onStatusChange }) => {
     switch (currentState) {
       case 'available': return 'occupied';
       case 'occupied': return 'available';
-      case 'cleaning': return 'available';
+      case 'assigned': return 'occupied';
       default: return 'available';
     }
   };
@@ -205,7 +457,9 @@ const TableCard = ({ table, onStatusChange }) => {
       <div className="flex justify-between items-start mb-3">
         <div>
           <h3 className="text-lg font-semibold">{table.tableNumber}</h3>
-          <p className="text-sm opacity-75">Section {table.section}</p>
+          <p className="text-sm opacity-75">
+            {table.section ? `Section ${table.section}` : 'No Section'}
+          </p>
         </div>
         <span className="text-xs bg-white bg-opacity-50 px-2 py-1 rounded">
           Seats {table.capacity}
@@ -215,7 +469,7 @@ const TableCard = ({ table, onStatusChange }) => {
       <div className="flex justify-between items-center">
         <span className="text-sm font-medium capitalize">{table.state}</span>
         <button
-          onClick={() => onStatusChange(table._id, getNextStatus(table.state))}
+          onClick={() => onStatusChange(table.id, getNextStatus(table.state))}
           className="px-3 py-1 bg-white bg-opacity-70 hover:bg-opacity-100 rounded text-sm font-medium transition-colors"
         >
           Change Status
@@ -225,7 +479,7 @@ const TableCard = ({ table, onStatusChange }) => {
   );
 };
 
-// Waitlist Entry Component (Compact for split view)
+// Waitlist Entry Component - unchanged
 const WaitlistEntry = ({ entry, onStatusChange, onRemove }) => {
   const getPriorityColor = (priority) => {
     switch (priority) {
@@ -243,20 +497,20 @@ const WaitlistEntry = ({ entry, onStatusChange, onRemove }) => {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="bg-white p-4 rounded-lg border space-y-3">
       <div className="flex justify-between items-start">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-medium text-gray-900 text-sm">{entry.partyName}</h3>
+            <h3 className="font-medium text-gray-900">{entry.partyName}</h3>
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(entry.priority)}`}>
               {entry.priority === 'large_party' ? 'Large' : entry.priority === 'coworker' ? 'Staff' : 'Normal'}
             </span>
           </div>
-          <p className="text-xs text-gray-600">
+          <p className="text-sm text-gray-600">
             Party of {entry.partySize} • {getWaitTime(entry.createdAt)} min
           </p>
           {entry.phoneNumber && (
-            <p className="text-xs text-gray-500 mt-1">{entry.phoneNumber}</p>
+            <p className="text-sm text-gray-500 mt-1">{entry.phoneNumber}</p>
           )}
         </div>
       </div>
@@ -264,13 +518,13 @@ const WaitlistEntry = ({ entry, onStatusChange, onRemove }) => {
       <div className="flex gap-2">
         <button
           onClick={() => onStatusChange(entry._id, 'seated')}
-          className="flex-1 bg-green-600 text-white px-2 py-1 rounded text-xs font-medium hover:bg-green-700 transition-colors"
+          className="flex-1 bg-green-600 text-white px-3 py-2 rounded text-sm font-medium hover:bg-green-700 transition-colors"
         >
-          Seat
+          Seat Party
         </button>
         <button
           onClick={() => onRemove(entry._id)}
-          className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs font-medium hover:bg-gray-300 transition-colors"
+          className="px-3 py-2 bg-gray-200 text-gray-700 rounded text-sm font-medium hover:bg-gray-300 transition-colors"
         >
           Cancel
         </button>
@@ -279,7 +533,7 @@ const WaitlistEntry = ({ entry, onStatusChange, onRemove }) => {
   );
 };
 
-// Add Party Modal
+// Add Party Modal - fixed validation issue
 const AddPartyModal = ({ isOpen, onClose, onAdd }) => {
   const [formData, setFormData] = useState({
     partyName: '',
@@ -294,11 +548,13 @@ const AddPartyModal = ({ isOpen, onClose, onAdd }) => {
     
     setLoading(true);
     try {
+      // Fixed: Only send required fields, let backend handle defaults
       await onAdd({
-        ...formData,
+        partyName: formData.partyName,
         partySize: parseInt(formData.partySize),
-        estimatedWait: 15, // Default estimate
-        partyStatus: 'waiting'
+        phoneNumber: formData.phoneNumber || undefined, // Optional
+        priority: formData.priority
+        // Removed: estimatedWait and partyStatus - backend handles these
       });
       setFormData({ partyName: '', partySize: '', phoneNumber: '', priority: 'normal' });
       onClose();
@@ -319,7 +575,7 @@ const AddPartyModal = ({ isOpen, onClose, onAdd }) => {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Party Name
+              Party Name *
             </label>
             <input
               type="text"
@@ -327,12 +583,13 @@ const AddPartyModal = ({ isOpen, onClose, onAdd }) => {
               onChange={(e) => setFormData({...formData, partyName: e.target.value})}
               className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
               placeholder="Enter party name"
+              required
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Party Size
+              Party Size *
             </label>
             <input
               type="number"
@@ -342,6 +599,7 @@ const AddPartyModal = ({ isOpen, onClose, onAdd }) => {
               placeholder="Number of guests"
               min="1"
               max="20"
+              required
             />
           </div>
 
@@ -394,7 +652,7 @@ const AddPartyModal = ({ isOpen, onClose, onAdd }) => {
   );
 };
 
-// Dashboard Component
+// Complete Dashboard Component with shift management integration
 const Dashboard = ({ user, onLogout }) => {
   const [currentView, setCurrentView] = useState('tables');
   const [tables, setTables] = useState([]);
@@ -429,43 +687,45 @@ const Dashboard = ({ user, onLogout }) => {
       setWaitlist(data.waitlist || []);
     } catch (err) {
       setError(err.message);
-      // Mock data for development
-      setWaitlist([
-        { _id: '1', partyName: 'Smith', partySize: 4, phoneNumber: '555-0123', priority: 'normal', createdAt: new Date(Date.now() - 15*60000) },
-        { _id: '2', partyName: 'Johnson', partySize: 2, phoneNumber: '555-0456', priority: 'coworker', createdAt: new Date(Date.now() - 8*60000) },
-        { _id: '3', partyName: 'Williams', partySize: 8, phoneNumber: '555-0789', priority: 'large_party', createdAt: new Date(Date.now() - 22*60000) }
-      ]);
+      setWaitlist([]); // Don't fall back to mock data
     } finally {
       setLoading(false);
     }
   };
 
-  const handleTableStatusChange = async (tableId, newState) => {
-    // Update optimistically
-    setTables(prevTables => 
-      prevTables.map(table => 
-        table._id === tableId ? { ...table, state: newState } : table
-      )
-    );
+  const handleConfigurationChange = (newTables) => {
+    if (newTables) {
+      setTables(newTables);
+    } else {
+      loadTables();
+    }
+  };
 
-    // Here you would make the actual API call to update table status
-    // await apiService.updateTableStatus(tableId, newState);
-    console.log(`Table ${tableId} changed to ${newState}`);
+  const handleTableStatusChange = async (tableId, newState) => {
+    try {
+      // Optimistic update
+      setTables(prevTables => 
+        prevTables.map(table => 
+          table.id === tableId ? { ...table, state: newState } : table
+        )
+      );
+
+      // Real API call
+      await apiService.updateTableState(tableId, newState);
+    } catch (error) {
+      console.error('Failed to update table:', error);
+      // Revert optimistic update
+      loadTables();
+    }
   };
 
   const handleAddToWaitlist = async (partyData) => {
     try {
       await apiService.addToWaitlist(partyData);
-      loadWaitlist(); // Refresh waitlist
+      loadWaitlist();
     } catch (error) {
       console.error('Failed to add party:', error);
-      // Add optimistically for demo
-      const newEntry = {
-        _id: Date.now().toString(),
-        ...partyData,
-        createdAt: new Date()
-      };
-      setWaitlist(prev => [...prev, newEntry]);
+      setError('Failed to add party to waitlist');
     }
   };
 
@@ -475,8 +735,7 @@ const Dashboard = ({ user, onLogout }) => {
       setWaitlist(prev => prev.filter(entry => entry._id !== entryId));
     } catch (error) {
       console.error('Failed to update status:', error);
-      // Remove optimistically for demo
-      setWaitlist(prev => prev.filter(entry => entry._id !== entryId));
+      setError('Failed to update waitlist status');
     }
   };
 
@@ -486,8 +745,7 @@ const Dashboard = ({ user, onLogout }) => {
       setWaitlist(prev => prev.filter(entry => entry._id !== entryId));
     } catch (error) {
       console.error('Failed to remove party:', error);
-      // Remove optimistically for demo
-      setWaitlist(prev => prev.filter(entry => entry._id !== entryId));
+      setError('Failed to remove party from waitlist');
     }
   };
 
@@ -496,7 +754,7 @@ const Dashboard = ({ user, onLogout }) => {
     onLogout();
   };
 
-  if (loading && (currentView === 'tables' ? tables.length === 0 : waitlist.length === 0)) {
+  if (loading && (currentView === 'tables' ? tables.length === 0 : currentView === 'waitlist' ? waitlist.length === 0 : false)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -530,6 +788,16 @@ const Dashboard = ({ user, onLogout }) => {
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex space-x-8">
             <button
+              onClick={() => setCurrentView('shift')}
+              className={`py-4 px-2 border-b-2 font-medium text-sm ${
+                currentView === 'shift'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Shift Setup
+            </button>
+            <button
               onClick={() => setCurrentView('tables')}
               className={`py-4 px-2 border-b-2 font-medium text-sm ${
                 currentView === 'tables'
@@ -561,7 +829,18 @@ const Dashboard = ({ user, onLogout }) => {
           </div>
         )}
 
-        {currentView === 'tables' ? (
+        {/* Content Rendering */}
+        {currentView === 'shift' && (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">Shift Management</h2>
+              <p className="text-gray-600">Configure table sections based on staffing levels</p>
+            </div>
+            <ShiftSetup onConfigurationChange={handleConfigurationChange} />
+          </div>
+        )}
+
+        {currentView === 'tables' && (
           <>
             {/* Table Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -579,9 +858,9 @@ const Dashboard = ({ user, onLogout }) => {
               </div>
               <div className="bg-white p-4 rounded-lg shadow">
                 <div className="text-2xl font-bold text-yellow-600">
-                  {tables.filter(t => t.state === 'cleaning').length}
+                  {tables.filter(t => t.state === 'assigned').length}
                 </div>
-                <div className="text-sm text-gray-600">Being Cleaned</div>
+                <div className="text-sm text-gray-600">Assigned Tables</div>
               </div>
               <div className="bg-white p-4 rounded-lg shadow">
                 <div className="text-2xl font-bold text-blue-600">
@@ -595,14 +874,16 @@ const Dashboard = ({ user, onLogout }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {tables.map(table => (
                 <TableCard
-                  key={table._id}
+                  key={table.id}
                   table={table}
                   onStatusChange={handleTableStatusChange}
                 />
               ))}
             </div>
           </>
-        ) : (
+        )}
+
+        {currentView === 'waitlist' && (
           <>
             {/* Waitlist Header */}
             <div className="flex justify-between items-center mb-6">
@@ -655,7 +936,6 @@ const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Check if user is already logged in
     if (authService.isAuthenticated()) {
       const savedUser = authService.getUser();
       if (savedUser) {

@@ -41,12 +41,12 @@ const sectionConfigurationSchema = new mongoose.Schema({
     }
   }],
   
-  // Metadata
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
+//   // Metadata
+//   createdBy: {
+//     type: mongoose.Schema.Types.ObjectId,
+//     ref: 'User',
+//     required: true
+//   },
   
   isActive: {
     type: Boolean,

@@ -1,14 +1,14 @@
 // backend/routes/shifts.js
 const express = require('express');
 const Table = require('../models/Table');
-const ShiftConfiguration = require('../models/ShiftConfiguration');
+const SectionConfiguration = require('../models/SectionConfiguration');
 const User = require('../models/User');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
 /**
- * 🎯 SHIFT CONFIGURATION MANAGEMENT
+ * 🎯 SECTION CONFIGURATION MANAGEMENT
  * 
  * These endpoints manage dynamic table-to-section assignments
  * based on how many servers are working
@@ -20,9 +20,8 @@ const router = express.Router();
  */
 router.get('/configurations', authenticateToken, async (req, res) => {
   try {
-    const configurations = await ShiftConfiguration.find({})
-      .populate('createdBy', 'userName role')
-      .sort({ serverCount: 1 });
+const configurations = await SectionConfiguration.find({})
+  .sort({ serverCount: 1 });
 
     const activeConfig = configurations.find(c => c.isActive);
 
@@ -55,7 +54,7 @@ router.post('/activate', authenticateToken, requireRole(['host', 'manager']), as
     }
 
     // Find the configuration
-    const config = await ShiftConfiguration.findById(configurationId);
+    const config = await SectionConfiguration.findById(configurationId);
     if (!config) {
       return res.status(404).json({
         error: 'Configuration not found'
@@ -63,7 +62,7 @@ router.post('/activate', authenticateToken, requireRole(['host', 'manager']), as
     }
 
     // Deactivate all other configurations
-    await ShiftConfiguration.updateMany({}, { isActive: false });
+    await SectionConfiguration.updateMany({}, { isActive: false });
     
     // Activate the selected configuration
     config.isActive = true;
@@ -118,8 +117,8 @@ router.post('/activate', authenticateToken, requireRole(['host', 'manager']), as
  */
 router.get('/active', authenticateToken, async (req, res) => {
   try {
-    const activeConfig = await ShiftConfiguration.findOne({ isActive: true })
-      .populate('createdBy', 'userName role');
+    const activeConfig = await SectionConfiguration.findOne({ isActive: true })
+      .populate( 'userName role');
 
     if (!activeConfig) {
       return res.status(200).json({
@@ -194,13 +193,13 @@ router.post('/quick-setup', authenticateToken, requireRole(['host', 'manager']),
     }
 
     // Find the best configuration for this server count
-    let bestConfig = await ShiftConfiguration.findOne({ 
+    let bestConfig = await SectionConfiguration.findOne({ 
       serverCount: { $lte: serverCount }
     }).sort({ serverCount: -1 });
 
     if (!bestConfig) {
       // If no configuration exists for this server count, use the smallest one
-      bestConfig = await ShiftConfiguration.findOne({}).sort({ serverCount: 1 });
+      bestConfig = await SectionConfiguration.findOne({}).sort({ serverCount: 1 });
     }
 
     if (!bestConfig) {
@@ -227,7 +226,7 @@ router.post('/quick-setup', authenticateToken, requireRole(['host', 'manager']),
     }
 
     // Apply the configuration
-    await ShiftConfiguration.updateMany({}, { isActive: false });
+    await SectionConfiguration.updateMany({}, { isActive: false });
     bestConfig.isActive = true;
     await bestConfig.save();
     await applyConfigurationToTables(bestConfig, { includePatioArea, includeBarArea });
