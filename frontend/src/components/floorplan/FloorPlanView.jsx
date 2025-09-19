@@ -1,26 +1,53 @@
 import {WAITER_COLORS} from '../../config/constants';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useShift } from '../../context/ShiftContext';
 import { RESTAURANT_LAYOUT } from '../../config/restaurantLayout';
+
 export const FloorPlanView = () => {
+  const { shiftData, removeServer, addServer } = useShift();
+  
   // State management for floor plan
-  const [waiterCount, setWaiterCount] = useState(4);
   const [tables, setTables] = useState([]);
   const [draggedTable, setDraggedTable] = useState(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [selectedTables, setSelectedTables] = useState(new Set());
   const [combinedTables, setCombinedTables] = useState(new Map());
+  const [showAddServer, setShowAddServer] = useState(false);
+  const [newServerName, setNewServerName] = useState('');
   const gridRef = useRef(null);
 
+  // ✅ Use waiterCount from shift context instead of local state
+  const waiterCount = shiftData.serverCount || 4;
+  const activeWaiters = shiftData.serverOrder || [];
+
+  const handleRemoveServer = (serverId) => {
+    const result = removeServer(serverId);
+    if (result.success) {
+      console.log(result.message);
+    }
+  };
+
+  const handleAddServer = () => {
+    if (!newServerName.trim()) return;
+    const result = addServer(newServerName.trim());
+    if (result.success) {
+      setNewServerName('');
+      setShowAddServer(false);
+      console.log(result.message);
+    }
+  };
+
   const WAITER_ASSIGNMENTS = {
-  1: ['B1', 'B2', 'B6', 'A8'],
-  2: ['A16', 'A9', 'A6', 'A7'],  
-  3: ['A15', 'A10', 'A4', 'A5'],
-  4: ['A13', 'A12', 'A1', 'A2'],
-  5: ['A14', 'A11', 'A3']
-};
-const GRID_SIZE = 30; // Size of each grid cell in pixels
-const GRID_COLS = 22; // Number of columns in the grid
-const GRID_ROWS = 18; // Number of rows in the grid
+    1: ['B1', 'B2', 'B6', 'A8'],
+    2: ['A16', 'A9', 'A6', 'A7'],  
+    3: ['A15', 'A10', 'A4', 'A5'],
+    4: ['A13', 'A12', 'A1', 'A2'],
+    5: ['A14', 'A11', 'A3']
+  };
+
+  const GRID_SIZE = 30;
+  const GRID_COLS = 22;
+  const GRID_ROWS = 18;
 
   // Initialize tables from configuration
   useEffect(() => {
@@ -47,7 +74,7 @@ const GRID_ROWS = 18; // Number of rows in the grid
     return null;
   };
 
-  // Drag and drop handlers
+  // Drag and drop handlers (unchanged)
   const handleMouseDown = (e, table) => {
     e.preventDefault();
     const rect = e.currentTarget.getBoundingClientRect();
@@ -121,7 +148,7 @@ const GRID_ROWS = 18; // Number of rows in the grid
     }));
   };
 
-  // Table combining functionality
+  // Table combining functionality (unchanged)
   const combineSelectedTables = () => {
     if (selectedTables.size < 2) return;
 
@@ -149,7 +176,7 @@ const GRID_ROWS = 18; // Number of rows in the grid
     setSelectedTables(new Set());
   };
 
-	const separateCombinedTable = (combinedId) => {
+  const separateCombinedTable = (combinedId) => {
     const combinedTable = combinedTables.get(combinedId);
     if (!combinedTable) return;
 
@@ -186,21 +213,68 @@ const GRID_ROWS = 18; // Number of rows in the grid
         <div className="flex justify-between items-center mb-4">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Floor Plan</h2>
-            <p className="text-sm text-gray-600">Drag tables • Double-click to change state</p>
+            <p className="text-sm text-gray-600">
+              {/* ✅ Show shift info instead of generic text */}
+              {waiterCount} servers working • Drag tables • Double-click to change state
+            </p>
           </div>
           
           <div className="flex items-center gap-4">
+            {/* Server Management Controls */}
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700">Waiters:</label>
-              <select
-                value={waiterCount}
-                onChange={(e) => setWaiterCount(parseInt(e.target.value))}
-                className="px-2 py-1 border border-gray-300 rounded text-sm"
-              >
-                <option value={3}>3</option>
-                <option value={4}>4</option>
-                <option value={5}>5</option>
-              </select>
+              <span className="text-sm font-medium text-gray-700">
+                Servers: {waiterCount}
+              </span>
+              
+              {/* Add Server Button */}
+              {!showAddServer ? (
+                <button
+                  onClick={() => setShowAddServer(true)}
+                  className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs hover:bg-green-200"
+                  disabled={waiterCount >= 7}
+                >
+                  + Add
+                </button>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="text"
+                    value={newServerName}
+                    onChange={(e) => setNewServerName(e.target.value)}
+                    placeholder="Server name"
+                    className="w-20 px-1 py-0.5 text-xs border border-gray-300 rounded"
+                    onKeyPress={(e) => e.key === 'Enter' && handleAddServer()}
+                  />
+                  <button
+                    onClick={handleAddServer}
+                    className="px-1 py-0.5 bg-green-600 text-white rounded text-xs"
+                  >
+                    ✓
+                  </button>
+                  <button
+                    onClick={() => {setShowAddServer(false); setNewServerName('')}}
+                    className="px-1 py-0.5 bg-gray-400 text-white rounded text-xs"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+              
+              {/* Remove Server Dropdown */}
+              {waiterCount > 1 && (
+                <select
+                  onChange={(e) => e.target.value && handleRemoveServer(Number(e.target.value))}
+                  className="px-2 py-1 text-xs border border-gray-300 rounded"
+                  value=""
+                >
+                  <option value="">Send Home</option>
+                  {activeWaiters.map(waiter => (
+                    <option key={waiter.id} value={waiter.id}>
+                      {waiter.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {selectedTables.size > 1 && (
@@ -214,24 +288,26 @@ const GRID_ROWS = 18; // Number of rows in the grid
           </div>
         </div>
 
-        {/* Waiter Legend */}
+        {/* ✅ Updated Waiter Legend - uses actual waiter data */}
         <div className="flex flex-wrap gap-2">
-          {getActiveWaiters().map(waiterNum => (
-            <div key={waiterNum} className="flex items-center gap-1">
+          {activeWaiters.map(waiter => (
+            <div key={waiter.id} className="flex items-center gap-1">
               <div 
                 className="w-3 h-3 rounded border"
                 style={{ 
-                  backgroundColor: WAITER_COLORS.background[waiterNum],
-                  borderColor: WAITER_COLORS.border[waiterNum]
+                  backgroundColor: WAITER_COLORS.background[waiter.id],
+                  borderColor: WAITER_COLORS.border[waiter.id]
                 }}
               />
-              <span className="text-xs text-gray-700">W{waiterNum}</span>
+              <span className="text-xs text-gray-700">
+                {waiter.name} (Section {waiter.section})
+              </span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Floor Plan Grid */}
+      {/* Floor Plan Grid (unchanged except for comments) */}
       <div className="flex-1 overflow-auto p-4">
         <div
           ref={gridRef}
@@ -246,7 +322,7 @@ const GRID_ROWS = 18; // Number of rows in the grid
             backgroundSize: `${GRID_SIZE}px ${GRID_SIZE}px`
           }}
         >
-          {/* Waiter Section Backgrounds */}
+          {/* ✅ Waiter Section Backgrounds - now based on shift data */}
           {getActiveWaiters().map(waiterNum => {
             const waiterTables = tables.filter(t => getTableWaiter(t.id) === waiterNum);
             if (waiterTables.length === 0) return null;
@@ -272,7 +348,7 @@ const GRID_ROWS = 18; // Number of rows in the grid
             );
           })}
 
-          {/* Individual Tables */}
+          {/* Individual Tables (unchanged) */}
           {tables.map((table) => {
             const isActive = isTableActive(table.id);
             const waiterNum = getTableWaiter(table.id);
@@ -306,7 +382,7 @@ const GRID_ROWS = 18; // Number of rows in the grid
             );
           })}
 
-          {/* Combined Tables */}
+          {/* Combined Tables (unchanged) */}
           {Array.from(combinedTables.values()).map((combined) => (
             <div
               key={combined.id}
@@ -329,7 +405,7 @@ const GRID_ROWS = 18; // Number of rows in the grid
         </div>
       </div>
 
-      {/* Floor Plan Stats */}
+      {/* Floor Plan Stats (unchanged) */}
       <div className="p-4 border-t border-gray-200 bg-gray-50">
         <div className="grid grid-cols-4 gap-4 text-center">
           <div>

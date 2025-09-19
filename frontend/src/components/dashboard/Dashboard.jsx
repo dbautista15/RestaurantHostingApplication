@@ -2,17 +2,11 @@
 import React from 'react';
 import { useWaitlist } from '../../hooks/useWaitlist';
 import { useMatrixSeating } from '../../hooks/useMatrixSeating';
+import { useShift } from '../../context/ShiftContext';
 import { WaitlistPanel } from '../waitlist/WaitlistPanel';
 import { FloorPlanView } from '../floorplan/FloorPlanView';
 import { SuggestionsPanel } from '../seating/SuggestionsPanel';
 import { ThreePanelLayout, LeftPanel, CenterPanel, RightPanel } from '../shared/ThreePanelLayout';
-
-const MOCK_WAITERS = [
-  { id: 1, name: 'Alice' },
-  { id: 2, name: 'Bob' },
-  { id: 3, name: 'Carol' },
-  { id: 4, name: 'David' }
-];
 
 const MOCK_TABLES = [
   { id: 'A1', state: 'available', capacity: 4 },
@@ -20,6 +14,8 @@ const MOCK_TABLES = [
 ];
 
 export const Dashboard = ({ user, onLogout }) => {
+  const { shiftData } = useShift(); // ✅ Get shift data
+  
   const { 
     waitlist, 
     loading, 
@@ -29,6 +25,9 @@ export const Dashboard = ({ user, onLogout }) => {
     removeParty 
   } = useWaitlist();
 
+  // ✅ Use actual waiters from shift data instead of mock
+  const activeWaiters = shiftData.serverOrder || [];
+
   const {
     matrix,
     suggestions,
@@ -36,7 +35,7 @@ export const Dashboard = ({ user, onLogout }) => {
     assignPartyToTable,
     confirmSeating,
     cancelAssignment
-  } = useMatrixSeating(MOCK_WAITERS, MOCK_TABLES, waitlist);
+  } = useMatrixSeating(activeWaiters, MOCK_TABLES, waitlist);
 
   if (loading && waitlist.length === 0) {
     return (
@@ -77,7 +76,7 @@ export const Dashboard = ({ user, onLogout }) => {
         <SuggestionsPanel
           suggestions={suggestions}
           matrix={matrix}
-          waiters={MOCK_WAITERS}
+          waiters={activeWaiters} // ✅ Pass actual waiters from shift
           pendingAssignments={pendingAssignments}
           onAssignParty={assignPartyToTable}
           onConfirmSeating={confirmSeating}
