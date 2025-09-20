@@ -45,13 +45,13 @@ router.post('/', authenticateToken, requireRole(['host']), async (req, res) => {
         required:['partyName','partySize','phoneNumber']
       });
     }
-    //check if the entry has already been added
-    const existingEntry = await WaitlistEntry.findOne({phoneNumber});
-    if(existingEntry){
-      return res.status(409).json({
-        error:'Waitlist entry has already been added, double check real quick'
-      });
-    }
+    // //check if the entry has already been added
+    // const existingEntry = await WaitlistEntry.findOne({phoneNumber});
+    // if(existingEntry){
+    //   return res.status(409).json({
+    //     error:'Waitlist entry has already been added, double check real quick'
+    //   });
+    // }
     //create a new entry
     const newWaitlistEntry = new WaitlistEntry({
       partyName,

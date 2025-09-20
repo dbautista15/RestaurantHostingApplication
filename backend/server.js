@@ -57,6 +57,13 @@ io.on('connection', (socket) => {
     io.emit('newMessage', message);
   });
 
+  // NEW: Handle table state sync between devices (iPad host <-> iPad waiter)
+  socket.on('sync_table_state', (data) => {
+    console.log('Table state sync:', data);
+    // Broadcast to all OTHER connected devices (not the sender)
+    socket.broadcast.emit('table_state_synced', data);
+  });
+
   socket.on('disconnect', () => {
     console.log('User Disconnected:', socket.id);
   });

@@ -4,26 +4,51 @@ import React, { createContext, useContext, useState } from 'react';
 const ShiftContext = createContext();
 
 export const ShiftProvider = ({ children }) => {
-  const [shiftData, setShiftData] = useState({
-    serverCount: null,
-    serverOrder: [],
-    isShiftSetup: false
-  });
-
-  const updateShiftData = (data) => {
-    setShiftData(prev => ({
-      ...prev,
-      ...data,
-      isShiftSetup: true
-    }));
-  };
-
-  const resetShift = () => {
-    setShiftData({
+  // NEW: Initialize from localStorage if available
+  const getInitialShiftData = () => {
+    try {
+      const saved = localStorage.getItem('restaurant-shift-data');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (error) {
+      console.error('Error loading shift data:', error);
+    }
+    
+    // Default state if no saved data
+    return {
       serverCount: null,
       serverOrder: [],
       isShiftSetup: false
-    });
+    };
+  };
+
+  const [shiftData, setShiftData] = useState(getInitialShiftData());
+
+  const updateShiftData = (data) => {
+    const newShiftData = {
+      ...shiftData,
+      ...data,
+      isShiftSetup: true
+    };
+    
+    setShiftData(newShiftData);
+    
+    // NEW: Save to localStorage
+    localStorage.setItem('restaurant-shift-data', JSON.stringify(newShiftData));
+  };
+
+  const resetShift = () => {
+    const resetData = {
+      serverCount: null,
+      serverOrder: [],
+      isShiftSetup: false
+    };
+    
+    setShiftData(resetData);
+    
+    // NEW: Clear from localStorage
+    localStorage.removeItem('restaurant-shift-data');
   };
 
   // Smart server removal with automatic table reassignment
@@ -38,8 +63,8 @@ export const ShiftProvider = ({ children }) => {
     // Automatically redistribute tables among remaining servers
     const redistributionLog = `${removedServer.name}'s tables redistributed among remaining ${remainingServers.length} servers`;
 
-    setShiftData(prev => ({
-      ...prev,
+    const updatedShiftData = {
+      ...shiftData,
       serverCount: remainingServers.length,
       serverOrder: remainingServers,
       lastChange: {
@@ -48,7 +73,12 @@ export const ShiftProvider = ({ children }) => {
         timestamp: new Date(),
         message: redistributionLog
       }
-    }));
+    };
+
+    setShiftData(updatedShiftData);
+    
+    // NEW: Save to localStorage
+    localStorage.setItem('restaurant-shift-data', JSON.stringify(updatedShiftData));
 
     return {
       success: true,
@@ -70,8 +100,8 @@ export const ShiftProvider = ({ children }) => {
 
     const updatedServerOrder = [...shiftData.serverOrder, newServer];
 
-    setShiftData(prev => ({
-      ...prev,
+    const updatedShiftData = {
+      ...shiftData,
       serverCount: updatedServerOrder.length,
       serverOrder: updatedServerOrder,
       lastChange: {
@@ -80,7 +110,12 @@ export const ShiftProvider = ({ children }) => {
         timestamp: new Date(),
         message: `${serverName} added to Section ${newSectionNumber}`
       }
-    }));
+    };
+
+    setShiftData(updatedShiftData);
+    
+    // NEW: Save to localStorage
+    localStorage.setItem('restaurant-shift-data', JSON.stringify(updatedShiftData));
 
     return {
       success: true,

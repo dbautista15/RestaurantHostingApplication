@@ -1,9 +1,9 @@
 import {WAITER_COLORS} from '../../config/constants';
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useImperativeHandle } from 'react';
 import { useShift } from '../../context/ShiftContext';
 import { RESTAURANT_LAYOUT } from '../../config/restaurantLayout';
 
-export const FloorPlanView = () => {
+export const FloorPlanView = React.forwardRef((props, ref) => {
   const { shiftData, removeServer, addServer } = useShift();
   
   // State management for floor plan
@@ -19,6 +19,25 @@ export const FloorPlanView = () => {
   // ✅ Use waiterCount from shift context instead of local state
   const waiterCount = shiftData.serverCount || 4;
   const activeWaiters = shiftData.serverOrder || [];
+
+  // ✅ NEW: Add the simple table update function
+  const updateTableState = useCallback((tableId, newState, partyInfo = null) => {
+    setTables(prev => prev.map(table => 
+      table.id === tableId 
+        ? { 
+            ...table, 
+            state: newState,
+            // If seating a party, optionally store party info on the table
+            occupiedBy: newState === 'occupied' ? partyInfo : null
+          }
+        : table
+    ));
+  }, []);
+
+  // ✅ NEW: Expose the function to parent components
+  useImperativeHandle(ref, () => ({
+    updateTableState
+  }), [updateTableState]);
 
   const handleRemoveServer = (serverId) => {
     const result = removeServer(serverId);
@@ -49,12 +68,40 @@ export const FloorPlanView = () => {
   const GRID_COLS = 22;
   const GRID_ROWS = 18;
 
-  // Initialize tables from configuration
+  // 🔧 FIXED: Initialize tables from localStorage first, then fallback to config
   useEffect(() => {
-    setTables(RESTAURANT_LAYOUT);
+    // Try to load saved table states from localStorage
+    try {
+      const savedTables = localStorage.getItem('restaurant-table-states');
+      if (savedTables) {
+        const parsedTables = JSON.parse(savedTables);
+        setTables(parsedTables);
+        console.log('Loaded table states from localStorage');
+      } else {
+        // No saved data, use default layout
+        setTables(RESTAURANT_LAYOUT);
+        console.log('Using default restaurant layout');
+      }
+    } catch (error) {
+      console.error('Error loading table states:', error);
+      // If there's an error, fall back to default
+      setTables(RESTAURANT_LAYOUT);
+    }
+    
     setSelectedTables(new Set());
     setCombinedTables(new Map());
   }, []);
+
+  // 🔧 NEW: Save table states to localStorage whenever tables change
+  useEffect(() => {
+    if (tables.length > 0) {
+      try {
+        localStorage.setItem('restaurant-table-states', JSON.stringify(tables));
+      } catch (error) {
+        console.error('Error saving table states:', error);
+      }
+    }
+  }, [tables]);
 
   // Helper functions
   const getActiveWaiters = () => Array.from({length: waiterCount}, (_, i) => i + 1);
@@ -374,6 +421,12 @@ export const FloorPlanView = () => {
                 <div className="w-full h-full rounded border-2 flex flex-col items-center justify-center text-xs font-medium p-1">
                   <div className="font-bold">{table.number}</div>
                   <div className="text-[10px] opacity-75">{table.capacity}</div>
+                  {/* ✅ NEW: Show party name if table is occupied by someone */}
+                  {table.occupiedBy && (
+                    <div className="text-[8px] opacity-80 text-center">
+                      {table.occupiedBy.name}
+                    </div>
+                  )}
                   {isActive && waiterNum && (
                     <div className="text-[9px] opacity-60">W{waiterNum}</div>
                   )}
@@ -436,4 +489,7 @@ export const FloorPlanView = () => {
       </div>
     </div>
   );
-};
+});
+
+// ✅ NEW: Add display name for debugging
+FloorPlanView.displayName = 'FloorPlanView';

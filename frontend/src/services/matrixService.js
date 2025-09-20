@@ -1,8 +1,41 @@
 export class MatrixSeatService {
   constructor(waiters) {
-    // Initialize matrix: [waiterIndex][partySizeIndex] = count
-    this.matrix = Array(waiters.length).fill().map(() => Array(6).fill(0));
     this.waiters = waiters;
+    
+    // Try to load saved matrix from localStorage
+    this.loadMatrixFromStorage();
+  }
+
+  // NEW: Load matrix from localStorage
+  loadMatrixFromStorage() {
+    try {
+      const saved = localStorage.getItem('restaurant-fairness-matrix');
+      if (saved) {
+        const savedMatrix = JSON.parse(saved);
+        // Validate the saved matrix matches current waiter count
+        if (savedMatrix.length === this.waiters.length) {
+          this.matrix = savedMatrix;
+          console.log('Loaded fairness matrix from storage');
+          return;
+        } else {
+          console.log('Saved matrix size mismatch, creating new matrix');
+        }
+      }
+    } catch (error) {
+      console.error('Error loading matrix from storage:', error);
+    }
+    
+    // Create fresh matrix if no valid saved data
+    this.matrix = Array(this.waiters.length).fill().map(() => Array(6).fill(0));
+  }
+
+  // NEW: Save matrix to localStorage
+  saveMatrixToStorage() {
+    try {
+      localStorage.setItem('restaurant-fairness-matrix', JSON.stringify(this.matrix));
+    } catch (error) {
+      console.error('Error saving matrix to storage:', error);
+    }
   }
 
   // Convert party size to matrix index (1→0, 2→1, 3→2, 4→3, 5→4, 6+→5)
@@ -40,10 +73,13 @@ export class MatrixSeatService {
     return bestWaiter;
   }
 
-  // Update matrix when party is seated
+  // Update matrix when party is seated - NOW SAVES TO STORAGE
   seatParty(waiterIndex, partySize) {
     const partySizeIndex = this.getPartySizeIndex(partySize);
     this.matrix[waiterIndex][partySizeIndex]++;
+    
+    // NEW: Save to localStorage after every update
+    this.saveMatrixToStorage();
   }
 
   // Get current matrix state
@@ -51,9 +87,12 @@ export class MatrixSeatService {
     return this.matrix;
   }
 
-  // Reset matrix (new shift)
+  // Reset matrix (new shift) - NOW CLEARS STORAGE
   reset() {
     this.matrix = Array(this.waiters.length).fill().map(() => Array(6).fill(0));
+    
+    // NEW: Clear from localStorage
+    localStorage.removeItem('restaurant-fairness-matrix');
   }
 
   // Get waiter's total tables served
@@ -68,9 +107,3 @@ export class MatrixSeatService {
     return totals.reduce((sum, total) => sum + Math.abs(total - avg), 0);
   }
 }
-
-
-
-
-
-

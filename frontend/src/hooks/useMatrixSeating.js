@@ -152,7 +152,7 @@ export const useMatrixSeating = (waiters, tables, waitlist) => {
     getBestTableForWaiterAndParty, 
     calculateConfidence, 
     generateReason
-  ]); // Fixed: Added all dependencies
+  ]);
 
   // Assign party to table
   const assignPartyToTable = useCallback((partyId, tableId) => {
@@ -202,7 +202,7 @@ export const useMatrixSeating = (waiters, tables, waitlist) => {
   // Auto-generate suggestions when data changes
   useEffect(() => {
     generateSuggestions();
-  }, [generateSuggestions]); // Fixed: Only depend on the memoized function
+  }, [generateSuggestions]);
 
   return {
     // Data
@@ -218,6 +218,7 @@ export const useMatrixSeating = (waiters, tables, waitlist) => {
     // Utilities
     generateSuggestions,
     getFairnessScore: () => matrixService.getFairnessScore(),
-    resetMatrix: () => matrixService.reset()
+    resetMatrix: () => matrixService.reset(),
+    matrixService  // ✅ ADDED: Expose the matrix service
   };
 };
