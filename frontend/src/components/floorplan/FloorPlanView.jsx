@@ -56,13 +56,14 @@ export const FloorPlanView = React.forwardRef((props, ref) => {
     }
   };
 
-  const WAITER_ASSIGNMENTS = {
-    1: ['B1', 'B2', 'B6', 'A8'],
-    2: ['A16', 'A9', 'A6', 'A7'],  
-    3: ['A15', 'A10', 'A4', 'A5'],
-    4: ['A13', 'A12', 'A1', 'A2'],
-    5: ['A14', 'A11', 'A3']
-  };
+const WAITER_ASSIGNMENTS = {
+  1: ['B1', 'B2', 'B6', 'A8'],
+  2: ['A16', 'A9', 'A7'],        // Removed A6
+  3: ['A15', 'A10', 'A6'],       // Added A6, removed A4, A5  
+  4: ['A14', 'A11', 'A5'],       // Added A5, removed A13, A12, A1, A2
+  5: ['A12', 'A3', 'A4'],        // Added A12, A4, removed A14, A11
+  6: ['A1', 'A2', 'A13']         // New section 6
+};
 
   const GRID_SIZE = 30;
   const GRID_COLS = 22;

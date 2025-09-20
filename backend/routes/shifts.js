@@ -182,13 +182,13 @@ router.get('/active', authenticateToken, async (req, res) => {
  * Quick setup based on server count
  * Automatically selects the best configuration for the number of servers working
  */
-router.post('/quick-setup', authenticateToken, requireRole(['host', 'manager']), async (req, res) => {
+router.post('/quick-setup', authenticateToken, requireRole(['host']), async (req, res) => {
   try {
-    const { serverCount, includePatioArea = false, includeBarArea = true } = req.body;
+    const { serverCount } = req.body;
     
-    if (!serverCount || serverCount < 1 || serverCount > 10) {
+    if (!serverCount || serverCount < 4 || serverCount > 10) {
       return res.status(400).json({
-        error: 'Server count must be between 1 and 10'
+        error: 'Server count must be between 4 and 10'
       });
     }
 
@@ -198,8 +198,8 @@ router.post('/quick-setup', authenticateToken, requireRole(['host', 'manager']),
     }).sort({ serverCount: -1 });
 
     if (!bestConfig) {
-      // If no configuration exists for this server count, use the smallest one
-      bestConfig = await SectionConfiguration.findOne({}).sort({ serverCount: 1 });
+      // If no configuration exists for this server count, use the 4-server config
+      bestConfig = await SectionConfiguration.findOne({ serverCount: 4 });
     }
 
     if (!bestConfig) {
@@ -208,37 +208,16 @@ router.post('/quick-setup', authenticateToken, requireRole(['host', 'manager']),
       });
     }
 
-    // Optionally filter out patio/bar if requested
-    let adjustedConfig = { ...bestConfig.toObject() };
-    
-    if (!includePatioArea) {
-      adjustedConfig.activeSections = adjustedConfig.activeSections.map(section => ({
-        ...section,
-        assignedTables: section.assignedTables.filter(table => !table.startsWith('P'))
-      }));
-    }
-    
-    if (!includeBarArea) {
-      adjustedConfig.activeSections = adjustedConfig.activeSections.map(section => ({
-        ...section,
-        assignedTables: section.assignedTables.filter(table => !table.startsWith('B'))
-      }));
-    }
-
     // Apply the configuration
     await SectionConfiguration.updateMany({}, { isActive: false });
     bestConfig.isActive = true;
     await bestConfig.save();
-    await applyConfigurationToTables(bestConfig, { includePatioArea, includeBarArea });
+    await applyConfigurationToTables(bestConfig);
 
     res.status(200).json({
       success: true,
       message: `Quick setup complete for ${serverCount} server(s)`,
-      appliedConfiguration: bestConfig.shiftName,
-      adjustments: {
-        patioIncluded: includePatioArea,
-        barIncluded: includeBarArea
-      }
+      appliedConfiguration: bestConfig.shiftName
     });
 
   } catch (error) {

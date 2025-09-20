@@ -62,20 +62,20 @@ export const ShiftProvider = ({ children }) => {
     const newServerCount = shiftData.serverCount - 1;
     
     try {
-      // Call backend to automatically reconfigure sections
-      // At the top of ShiftContext.js, add this import:
-
-// Then in both removeServer and addServer functions, update the fetch calls:
-const response = await fetch('http://localhost:3001/api/shifts/quick-setup', {
-  method: 'POST',
-  headers: { 
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${authService.getToken()}` // ADD THIS LINE
-  },
-  body: JSON.stringify({ serverCount: newServerCount })
-});
+      // FIXED: Clean fetch call without embedded comments
+      const response = await fetch('http://localhost:3000/api/shifts/quick-setup', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authService.getToken()}`
+        },
+        body: JSON.stringify({ serverCount: newServerCount })
+      });
       
-      if (!response.ok) throw new Error('Failed to reconfigure sections');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to reconfigure sections');
+      }
       
       // Update local state after successful backend reconfiguration
       const remainingServers = shiftData.serverOrder
@@ -110,7 +110,7 @@ const response = await fetch('http://localhost:3001/api/shifts/quick-setup', {
       console.error('Failed to reconfigure sections:', error);
       return { 
         success: false, 
-        message: "Failed to reconfigure sections. Please try again." 
+        message: error.message || "Failed to reconfigure sections. Please try again." 
       };
     }
   };
@@ -120,19 +120,20 @@ const response = await fetch('http://localhost:3001/api/shifts/quick-setup', {
     const newServerCount = shiftData.serverCount + 1;
     
     try {
-// At the top of ShiftContext.js, add this import:
-
-// Then in both removeServer and addServer functions, update the fetch calls:
-const response = await fetch('http://localhost:3001/api/shifts/quick-setup', {
-  method: 'POST',
-  headers: { 
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${authService.getToken()}` // ADD THIS LINE
-  },
-  body: JSON.stringify({ serverCount: newServerCount })
-});
+      // FIXED: Clean fetch call without embedded comments
+      const response = await fetch('http://localhost:3000/api/shifts/quick-setup', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authService.getToken()}`
+        },
+        body: JSON.stringify({ serverCount: newServerCount })
+      });
       
-      if (!response.ok) throw new Error('Failed to reconfigure sections');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to reconfigure sections');
+      }
       
       // Update local state after successful backend reconfiguration
       const newServerId = Math.max(...shiftData.serverOrder.map(s => s.id), 0) + 1;
@@ -168,7 +169,7 @@ const response = await fetch('http://localhost:3001/api/shifts/quick-setup', {
       console.error('Failed to add server and reconfigure:', error);
       return { 
         success: false, 
-        message: "Failed to add server and reconfigure sections. Please try again." 
+        message: error.message || "Failed to add server and reconfigure sections. Please try again." 
       };
     }
   };
