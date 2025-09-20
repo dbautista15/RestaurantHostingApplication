@@ -1,5 +1,7 @@
+// frontend/src/hooks/useWaitlist.js
 import { useState, useEffect } from 'react';
 import { apiService } from '../services/apiService';
+import { MOCK_WAITLIST, DEV_CONFIG } from '../config/constants';
 
 export const useWaitlist = () => {
   const [waitlist, setWaitlist] = useState([]);
@@ -13,12 +15,15 @@ export const useWaitlist = () => {
       setWaitlist(data.waitlist || []);
     } catch (err) {
       setError(err.message);
-      // Fallback to mock data for development
-      setWaitlist([
-        { _id: '1', partyName: 'Smith', partySize: 4, phoneNumber: '555-0123', priority: 'normal', createdAt: new Date(Date.now() - 15*60000) },
-        { _id: '2', partyName: 'Johnson', partySize: 2, phoneNumber: '555-0456', priority: 'coworker', createdAt: new Date(Date.now() - 8*60000) },
-        { _id: '3', partyName: 'Williams', partySize: 8, phoneNumber: '555-0789', priority: 'large_party', createdAt: new Date(Date.now() - 22*60000) }
-      ]);
+      
+      // ✅ CONSOLIDATED: Use centralized mock data instead of hardcoded
+      if (DEV_CONFIG.ENABLE_MOCK_DATA) {
+        console.warn('Using mock waitlist data for development');
+        setWaitlist(MOCK_WAITLIST);
+      } else {
+        // Production fallback to empty array
+        setWaitlist([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -30,8 +35,10 @@ export const useWaitlist = () => {
       loadWaitlist();
     } catch (error) {
       console.error('Failed to add party:', error);
+      
+      // ✅ IMPROVED: Better fallback with consistent ID generation
       const newEntry = {
-        _id: Date.now().toString(),
+        _id: `mock_${Date.now()}`,
         ...partyData,
         createdAt: new Date()
       };
@@ -45,6 +52,7 @@ export const useWaitlist = () => {
       setWaitlist(prev => prev.filter(entry => entry._id !== entryId));
     } catch (error) {
       console.error('Failed to update status:', error);
+      // Still remove from local state for better UX
       setWaitlist(prev => prev.filter(entry => entry._id !== entryId));
     }
   };
@@ -55,6 +63,7 @@ export const useWaitlist = () => {
       setWaitlist(prev => prev.filter(entry => entry._id !== entryId));
     } catch (error) {
       console.error('Failed to remove party:', error);
+      // Still remove from local state for better UX
       setWaitlist(prev => prev.filter(entry => entry._id !== entryId));
     }
   };

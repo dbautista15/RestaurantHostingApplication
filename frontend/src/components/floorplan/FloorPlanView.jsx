@@ -1,7 +1,8 @@
-import {WAITER_COLORS} from '../../config/constants';
+// frontend/src/components/floorplan/FloorPlanView.jsx
+// ✅ UPDATED IMPORTS: Use centralized constants
+import { WAITER_COLORS, WAITER_ASSIGNMENTS, RESTAURANT_LAYOUT } from '../../config/constants';
 import React, { useState, useEffect, useRef, useCallback, useImperativeHandle } from 'react';
 import { useShift } from '../../context/ShiftContext';
-import { RESTAURANT_LAYOUT } from '../../config/restaurantLayout';
 
 export const FloorPlanView = React.forwardRef((props, ref) => {
   const { shiftData, removeServer, addServer } = useShift();
@@ -56,14 +57,8 @@ export const FloorPlanView = React.forwardRef((props, ref) => {
     }
   };
 
-const WAITER_ASSIGNMENTS = {
-  1: ['B1', 'B2', 'B6', 'A8'],
-  2: ['A16', 'A9', 'A7'],        // Removed A6
-  3: ['A15', 'A10', 'A6'],       // Added A6, removed A4, A5  
-  4: ['A14', 'A11', 'A5'],       // Added A5, removed A13, A12, A1, A2
-  5: ['A12', 'A3', 'A4'],        // Added A12, A4, removed A14, A11
-  6: ['A1', 'A2', 'A13']         // New section 6
-};
+  // ❌ REMOVED: Duplicate WAITER_ASSIGNMENTS - now imported from constants
+  // ❌ REMOVED: Hardcoded waiter assignments object
 
   const GRID_SIZE = 30;
   const GRID_COLS = 22;
@@ -79,13 +74,13 @@ const WAITER_ASSIGNMENTS = {
         setTables(parsedTables);
         console.log('Loaded table states from localStorage');
       } else {
-        // No saved data, use default layout
+        // ✅ CONSOLIDATED: Use centralized restaurant layout
         setTables(RESTAURANT_LAYOUT);
         console.log('Using default restaurant layout');
       }
     } catch (error) {
       console.error('Error loading table states:', error);
-      // If there's an error, fall back to default
+      // ✅ CONSOLIDATED: If there's an error, fall back to centralized layout
       setTables(RESTAURANT_LAYOUT);
     }
     
@@ -114,7 +109,7 @@ const WAITER_ASSIGNMENTS = {
   };
 
   const getTableWaiter = (tableId) => {
-    for (let waiterId = 1; waiterId <= 5; waiterId++) {
+    for (let waiterId = 1; waiterId <= 7; waiterId++) {
       if (WAITER_ASSIGNMENTS[waiterId]?.includes(tableId)) {
         return waiterId;
       }

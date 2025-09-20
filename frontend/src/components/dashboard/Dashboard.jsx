@@ -1,5 +1,5 @@
-// src/components/dashboard/Dashboard.jsx
-import React, { useRef, useEffect } from 'react'; // ADDED: useEffect import
+// frontend/src/components/dashboard/Dashboard.jsx
+import React, { useRef, useEffect } from 'react';
 import { useWaitlist } from '../../hooks/useWaitlist';
 import { useMatrixSeating } from '../../hooks/useMatrixSeating';
 import { useShift } from '../../context/ShiftContext';
@@ -7,22 +7,9 @@ import { WaitlistPanel } from '../waitlist/WaitlistPanel';
 import { FloorPlanView } from '../floorplan/FloorPlanView';
 import { SuggestionsPanel } from '../seating/SuggestionsPanel';
 import { ThreePanelLayout, LeftPanel, CenterPanel, RightPanel } from '../shared/ThreePanelLayout';
-// NEW: Add socket.io import
 import { io } from 'socket.io-client';
-
-const MOCK_TABLES = [
-  { id: 'A1', state: 'available', capacity: 4 },
-  { id: 'A2', state: 'occupied', capacity: 2 }
-];
-
-// Simple waiter assignment lookup (matches your floor plan logic)
-const WAITER_ASSIGNMENTS = {
-  1: ['B1', 'B2', 'B6', 'A8'],
-  2: ['A16', 'A9', 'A6', 'A7'],  
-  3: ['A15', 'A10', 'A4', 'A5'],
-  4: ['A13', 'A12', 'A1', 'A2'],
-  5: ['A14', 'A11', 'A3']
-};
+// ✅ CONSOLIDATED: Import from centralized constants
+import { MOCK_TABLES, WAITER_ASSIGNMENTS } from '../../config/constants';
 
 export const Dashboard = ({ user, onLogout }) => {
   const { shiftData } = useShift();
@@ -43,13 +30,12 @@ export const Dashboard = ({ user, onLogout }) => {
     matrix,
     suggestions,
     pendingAssignments,
-    assignPartyToTable,
     confirmSeating,
     cancelAssignment,
     matrixService
   } = useMatrixSeating(activeWaiters, MOCK_TABLES, waitlist);
 
-  // NEW: Socket.IO setup for device synchronization
+  // Socket.IO setup for device synchronization
   useEffect(() => {
     const socket = io('http://localhost:3001');
     
@@ -69,11 +55,11 @@ export const Dashboard = ({ user, onLogout }) => {
     return () => {
       socket.disconnect();
     };
-  }, []); // Empty dependency array - only run once
+  }, []);
 
   // Function to find which waiter serves a table
   const getTableWaiter = (tableId) => {
-    for (let waiterId = 1; waiterId <= 5; waiterId++) {
+    for (let waiterId = 1; waiterId <= 7; waiterId++) {
       if (WAITER_ASSIGNMENTS[waiterId]?.includes(tableId)) {
         return waiterId;
       }
@@ -81,7 +67,7 @@ export const Dashboard = ({ user, onLogout }) => {
     return null;
   };
 
-  // ENHANCED: Now updates floor plan AND matrix AND syncs to other devices
+  // Enhanced: Now updates floor plan AND matrix AND syncs to other devices
   const handleSeatParty = async (partyId, status) => {
     const party = waitlist.find(p => p._id === partyId);
     if (!party) return;
@@ -98,7 +84,7 @@ export const Dashboard = ({ user, onLogout }) => {
         partyInfo
       );
 
-      // NEW: Broadcast to other devices (waiter iPad)
+      // Broadcast to other devices (waiter iPad)
       const socket = io('http://localhost:3001');
       socket.emit('sync_table_state', {
         tableId: availableTable.id,

@@ -1,7 +1,7 @@
 
 import React from 'react';
 
-export const SuggestionPanel = ({ suggestions, onAssign, onDismiss }) => {
+export const SuggestionCard = ({ suggestions, onAssign, onDismiss }) => {
   if (suggestions.length === 0) {
 	return (
 	  <div className="bg-gray-50 p-4 rounded-lg border text-center text-gray-500">
@@ -42,12 +42,7 @@ export const SuggestionPanel = ({ suggestions, onAssign, onDismiss }) => {
 			>
 			  Assign
 			</button>
-			<button
-			  onClick={() => onDismiss(suggestion.id)}
-			  className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-xs hover:bg-gray-300"
-			>
-			  Skip
-			</button>
+
 		  </div>
 		</div>
 	  ))}

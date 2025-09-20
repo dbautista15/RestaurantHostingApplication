@@ -24,7 +24,7 @@ const waitlistEntrySchema = new mongoose.Schema({
       min:1
     },
     phoneNumber:{
-      type:String,
+      type:Number,
       required:true
     },
   // TODO: Define wait time estimation

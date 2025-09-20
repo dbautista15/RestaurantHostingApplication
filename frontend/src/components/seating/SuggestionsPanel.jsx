@@ -1,6 +1,6 @@
 // src/components/seating/SuggestionsPanel.jsx
 import React from 'react';
-import { SuggestionPanel } from './SuggestionPanel';
+import { SuggestionCard } from './SuggestionCard';
 import { MatrixDisplay } from './MatrixDisplay';
 import { PendingAssignments } from './PendingAssignments';
 
@@ -31,7 +31,7 @@ export const SuggestionsPanel = ({
         />
 
         {/* Smart Suggestions */}
-        <SuggestionPanel 
+        <SuggestionCard 
           suggestions={suggestions}
           onAssign={onAssignParty}
           onDismiss={() => {}}
