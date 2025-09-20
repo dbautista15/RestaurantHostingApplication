@@ -72,6 +72,41 @@ export const useMatrixSeating = (waiters, tables, waitlist) => {
 		});
 	}, [tables, getTableWaiter, isPendingAssignment]);
 
+
+	// Add this function after your existing getBestTableForWaiterAndParty function
+	const findBestWaiterWithFIFO = useCallback((party, availableWaiters) => {
+		const partySizeIndex = matrixService.getPartySizeIndex(party.partySize);
+		const waitMinutes = Math.floor((Date.now() - new Date(party.createdAt)) / (1000 * 60));
+
+		// If party has been waiting > 20 minutes, prioritize them (less strict fairness)
+		const isUrgent = waitMinutes > 20;
+
+		// Find waiters with lowest count for this party size
+		const waiterCounts = availableWaiters.map(waiter => ({
+			waiter,
+			count: matrixService.matrix[waiter.index][partySizeIndex],
+			totalTables: matrixService.getWaiterTotal(waiter.index)
+		}));
+
+		const minCount = Math.min(...waiterCounts.map(w => w.count));
+		const fairestWaiters = waiterCounts.filter(w => w.count === minCount);
+
+		if (fairestWaiters.length === 1) {
+			return fairestWaiters[0].waiter;
+		}
+
+		// Tiebreaker: if urgent party, pick waiter with fewest total tables
+		// Otherwise, use existing logic (total tables)
+		if (isUrgent) {
+			const minTotal = Math.min(...fairestWaiters.map(w => w.totalTables));
+			const candidate = fairestWaiters.find(w => w.totalTables === minTotal);
+			return candidate.waiter;
+		}
+
+		// Default to existing matrixService logic
+		return matrixService.findBestWaiter(party.partySize, availableWaiters);
+	}, [matrixService]);
+
 	// Calculate confidence score for suggestion - FIXED DEPENDENCIES
 	const calculateConfidence = useCallback((party, table, waiter) => {
 		let confidence = 100;
@@ -126,7 +161,7 @@ export const useMatrixSeating = (waiters, tables, waitlist) => {
 			if (isPendingAssignment(null, party._id)) continue;
 
 			const availableWaiters = getWaitersWithAvailableTables(party.partySize);
-			const bestWaiter = matrixService.findBestWaiter(party.partySize, availableWaiters);
+			const bestWaiter = findBestWaiterWithFIFO(party, availableWaiters);
 
 			if (bestWaiter) {
 				const bestTable = getBestTableForWaiterAndParty(bestWaiter, party.partySize);

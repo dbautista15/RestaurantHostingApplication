@@ -167,6 +167,7 @@ export const Dashboard = ({ user, onLogout }) => {
   }
 
   return (
+    
     <ThreePanelLayout user={user} onLogout={onLogout} waitlistCount={waitlist.length}>
       {error && (
         <div className="bg-red-50 border-l-4 border-red-400 text-red-700 px-4 py-3 mx-4 mt-4 rounded">
