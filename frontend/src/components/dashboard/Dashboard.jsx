@@ -177,7 +177,7 @@ export const Dashboard = ({ user, onLogout }) => {
           matrix={matrix}
           waiters={activeWaiters}
           pendingAssignments={pendingAssignments}
-          onAssignParty={assignPartyToTable}
+          onAssignParty={handleSeatParty}
           onConfirmSeating={confirmSeating}
           onCancelAssignment={cancelAssignment}
         />

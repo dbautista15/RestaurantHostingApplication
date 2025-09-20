@@ -67,8 +67,7 @@ const validateTableStateUpdate = (req, res, next) => {
   const errors = [];
   
   // Define the valid table states for restaurant
-  const VALID_STATES = ['available', 'occupied', 'reserved', 'cleaning'];
-  
+const VALID_STATES = ['available', 'assigned', 'occupied'];  
   // Extract and sanitize inputs
   const newState = req.body.newState ? req.body.newState.toString().trim().toLowerCase() : '';
   const waiterId = req.body.waiterId ? req.body.waiterId.toString().trim() : '';

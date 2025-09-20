@@ -24,6 +24,7 @@ const connectDatabase = async () => {
 // Define ALL your restaurant tables (no fixed sections)
 const ALL_RESTAURANT_TABLES = [
 	// BOOTHS
+	{ tableNumber: 'A1', capacity: 2, position: 'right-wall' },
 	{ tableNumber: 'A2', capacity: 2, position: 'right-wall' },
 	{ tableNumber: 'A3', capacity: 4, position: 'right-wall' },
 	{ tableNumber: 'A4', capacity: 4, position: 'right-wall' },
@@ -116,7 +117,7 @@ const SECTION_CONFIGURATIONS = [
 				serverCount: 1
 			}
 		],
-		notes: 'Four servers, balanced sections'
+		notes: 'five servers, balanced sections'
 	},
 
 	// Weekend/busy - 5+ servers with patio
@@ -155,7 +156,7 @@ const SECTION_CONFIGURATIONS = [
 				serverCount: 1
 			}
 		],
-		notes: 'Four servers, balanced sections'
+		notes: 'six servers, balanced sections'
 	},
 	{
 		shiftName: 'seven',

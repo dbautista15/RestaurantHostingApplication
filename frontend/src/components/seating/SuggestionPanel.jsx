@@ -37,7 +37,7 @@ export const SuggestionPanel = ({ suggestions, onAssign, onDismiss }) => {
 		  
 		  <div className="flex gap-2">
 			<button
-			  onClick={() => onAssign(suggestion.party._id, suggestion.table.id)}
+			  onClick={() => onAssign(suggestion.party._id, 'seated')}
 			  className="flex-1 bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700"
 			>
 			  Assign
