@@ -90,50 +90,54 @@ export const FloorPlanView = React.forwardRef((props, ref) => {
   const waiterCount = shiftData.serverCount || 4;
   const activeWaiters = shiftData.serverOrder || [];
 
-// In FloorPlanView.jsx - modify the updateTableState function:
-const updateTableState = useCallback(async (tableId, newState, partyInfo = null) => {
-  // Update local state immediately for responsive UI
-  setTables(prev => prev.map(table => 
-    table.id === tableId 
-      ? { 
-          ...table, 
-          state: newState,
-          occupiedBy: newState === 'occupied' ? partyInfo : null
-        }
-      : table
-  ));
+  // FIXED: Add proper dependencies to updateTableState
+  const updateTableState = useCallback(async (tableId, newState, partyInfo = null) => {
+    // Update local state immediately for responsive UI
+    setTables(prev => prev.map(table => 
+      table.id === tableId 
+        ? { 
+            ...table, 
+            state: newState,
+            occupiedBy: newState === 'occupied' ? partyInfo : null
+          }
+        : table
+    ));
 
-  // ADD THIS: Persist to backend
-  try {
-    const token = localStorage.getItem('token');
-    const requestBody = { newState };
-    
-    if (newState === 'occupied' && partyInfo) {
-      requestBody.partySize = partyInfo.size;
+    // Persist to backend
+    try {
+      const token = localStorage.getItem('token');
+      const requestBody = { newState };
+      
+      if (newState === 'occupied' && partyInfo) {
+        requestBody.partySize = partyInfo.size;
+      }
+
+      await fetch(`http://localhost:3000/api/tables/${tableId}/state`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(requestBody)
+      });
+    } catch (error) {
+      console.error('Failed to persist table state:', error);
     }
+  }, []); // No external dependencies needed
 
-    await fetch(`http://localhost:3000/api/tables/${tableId}/state`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(requestBody)
-    });
-  } catch (error) {
-    console.error('Failed to persist table state:', error);
-    // Could optionally revert local state here if needed
-  }
-}, []);
+  // FIXED: Add proper dependencies to useImperativeHandle
+  useImperativeHandle(ref, () => ({
+    updateTableState
+  }), [updateTableState]);
 
-  const handleRemoveServer = (serverId) => {
+  const handleRemoveServer = useCallback((serverId) => {
     const result = removeServer(serverId);
     if (result.success) {
       console.log(result.message);
     }
-  };
+  }, [removeServer]);
 
-  const handleAddServer = () => {
+  const handleAddServer = useCallback(() => {
     if (!newServerName.trim()) return;
     const result = addServer(newServerName.trim());
     if (result.success) {
@@ -141,14 +145,27 @@ const updateTableState = useCallback(async (tableId, newState, partyInfo = null)
       setShowAddServer(false);
       console.log(result.message);
     }
-  };
+  }, [newServerName, addServer]);
 
   const GRID_SIZE = 30;
   const GRID_COLS = 22;
   const GRID_ROWS = 18;
 
-  // ✅ Load tables from backend API
-  const loadTablesFromBackend = async () => {
+  // ✅ Helper function to get table positions
+  const getTablePosition = useCallback((tableNumber) => {
+    const positions = {
+      'B1': { x: 2, y: 13 }, 'B2': { x: 5, y: 13 }, 'B6': { x: 18, y: 15 }, 'A8': { x: 18, y: 13 },
+      'A16': { x: 2, y: 9 }, 'A9': { x: 5, y: 9 }, 'A6': { x: 18, y: 9 }, 'A7': { x: 18, y: 11 },
+      'A15': { x: 2, y: 5 }, 'A10': { x: 5, y: 5 }, 'A4': { x: 18, y: 5 }, 'A5': { x: 18, y: 7 },
+      'A13': { x: 2, y: 1 }, 'A12': { x: 5, y: 1 }, 'A1': { x: 15, y: 1 }, 'A2': { x: 18, y: 1 },
+      'A14': { x: 2, y: 3 }, 'A11': { x: 5, y: 3 }, 'A3': { x: 18, y: 3 },
+      'B3': { x: 3, y: 16 }, 'B4': { x: 12, y: 16 }, 'B5': { x: 15, y: 16 }
+    };
+    return positions[tableNumber] || { x: 0, y: 0 };
+  }, []);
+
+  // FIXED: Add proper dependencies to loadTablesFromBackend
+  const loadTablesFromBackend = useCallback(async () => {
     try {
       const response = await fetch('http://localhost:3000/api/tables', {
         headers: {
@@ -206,67 +223,52 @@ const updateTableState = useCallback(async (tableId, newState, partyInfo = null)
       ];
       setTables(fallbackTables);
     }
-  };
-
-  // ✅ Helper function to get table positions
-  const getTablePosition = (tableNumber) => {
-    const positions = {
-      'B1': { x: 2, y: 13 }, 'B2': { x: 5, y: 13 }, 'B6': { x: 18, y: 15 }, 'A8': { x: 18, y: 13 },
-      'A16': { x: 2, y: 9 }, 'A9': { x: 5, y: 9 }, 'A6': { x: 18, y: 9 }, 'A7': { x: 18, y: 11 },
-      'A15': { x: 2, y: 5 }, 'A10': { x: 5, y: 5 }, 'A4': { x: 18, y: 5 }, 'A5': { x: 18, y: 7 },
-      'A13': { x: 2, y: 1 }, 'A12': { x: 5, y: 1 }, 'A1': { x: 15, y: 1 }, 'A2': { x: 18, y: 1 },
-      'A14': { x: 2, y: 3 }, 'A11': { x: 5, y: 3 }, 'A3': { x: 18, y: 3 },
-      'B3': { x: 3, y: 16 }, 'B4': { x: 12, y: 16 }, 'B5': { x: 15, y: 16 }
-    };
-    return positions[tableNumber] || { x: 0, y: 0 };
-  };
+  }, [getTablePosition]); // Add getTablePosition as dependency
 
   // ✅ Load tables when component mounts
   useEffect(() => {
     loadTablesFromBackend();
     setSelectedTables(new Set());
     setCombinedTables(new Map());
-  }, []);
+  }, [loadTablesFromBackend]);
 
-  // ✅ Reload tables when shift data changes
+  // ✅ Reload tables when shift data changes - FIXED DEPENDENCIES
   useEffect(() => {
     if (shiftData.lastChange) {
       console.log('Shift changed, reloading tables:', shiftData.lastChange);
       loadTablesFromBackend();
     }
-  }, [shiftData.lastChange]);
+  }, [shiftData.lastChange, loadTablesFromBackend]);
 
   // Helper functions
-  const getActiveWaiters = () => activeWaiters.map(waiter => waiter.id);
+  const getActiveWaiters = useCallback(() => activeWaiters.map(waiter => waiter.id), [activeWaiters]);
   
-  const isTableActive = (tableId) => {
+  const isTableActive = useCallback((tableId) => {
     const table = tables.find(t => t.id === tableId);
     return table && table.section !== null;
-  };
+  }, [tables]);
 
-  const getTableWaiter = (tableId) => {
+  const getTableWaiter = useCallback((tableId) => {
     const table = tables.find(t => t.id === tableId);
     return table ? table.section : null;
-  };
+  }, [tables]);
 
-// In FloorPlanView.jsx - modify updateMatrixForManualSeating
-const updateMatrixForManualSeating = (tableId, partySize) => {
-  const waiterSection = getTableWaiter(tableId);
-  if (!waiterSection) return;
+  // FIXED: Function to update matrix when party is manually seated
+  const updateMatrixForManualSeating = useCallback((tableId, partySize) => {
+    const waiterSection = getTableWaiter(tableId);
+    if (!waiterSection) return;
 
-  const waiterIndex = activeWaiters.findIndex(w => w.section === waiterSection);
-  if (waiterIndex === -1) return;
+    const waiterIndex = activeWaiters.findIndex(w => w.section === waiterSection);
+    if (waiterIndex === -1) return;
 
-  // ADD THIS CHECK: Only update matrix for truly manual seating
-  // (not when it's coming from waitlist seating)
-  if (props.onUpdateMatrix) {
-    console.log('🎯 Manual seating matrix update:', waiterIndex, partySize);
-    props.onUpdateMatrix(waiterIndex, partySize);
-  }
-};
+    if (props.onUpdateMatrix) {
+      console.log('🎯 Manual seating matrix update:', waiterIndex, partySize, 'for table', tableId);
+      props.onUpdateMatrix(waiterIndex, partySize, tableId);
+    }
+  }, [getTableWaiter, activeWaiters, props.onUpdateMatrix]);
 
-  // Drag and drop handlers (unchanged)
-  const handleMouseDown = (e, table) => {
+  // Drag and drop handlers
+  const handleMouseDown = useCallback((e, table) => {
     e.preventDefault();
     const rect = e.currentTarget.getBoundingClientRect();
     setDraggedTable(table);
@@ -274,7 +276,7 @@ const updateMatrixForManualSeating = (tableId, partySize) => {
       x: e.clientX - rect.left,
       y: e.clientY - rect.top
     });
-  };
+  }, []);
 
   const handleMouseMove = useCallback((e) => {
     if (!draggedTable || !gridRef.current) return;
@@ -310,7 +312,7 @@ const updateMatrixForManualSeating = (tableId, partySize) => {
   }, [draggedTable, handleMouseMove, handleMouseUp]);
 
   // Table interaction handlers
-  const handleTableClick = (table, e) => {
+  const handleTableClick = useCallback((table, e) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       setSelectedTables(prev => {
@@ -323,10 +325,10 @@ const updateMatrixForManualSeating = (tableId, partySize) => {
         return newSet;
       });
     }
-  };
+  }, []);
 
   // ✅ UPDATED: Modified to handle party size modal for 'occupied' state
-  const toggleTableState = (tableId) => {
+  const toggleTableState = useCallback((tableId) => {
     if (!isTableActive(tableId)) return;
     
     const table = tables.find(t => t.id === tableId);
@@ -347,10 +349,10 @@ const updateMatrixForManualSeating = (tableId, partySize) => {
     setTables(prev => prev.map(t => 
       t.id === tableId ? { ...t, state: nextState } : t
     ));
-  };
+  }, [isTableActive, tables]);
 
   // ✅ NEW: Handle party size confirmation
-  const handlePartySizeConfirm = (partySize) => {
+  const handlePartySizeConfirm = useCallback((partySize) => {
     if (!pendingOccupiedTable) return;
 
     // Update table state to occupied with party info
@@ -368,25 +370,23 @@ const updateMatrixForManualSeating = (tableId, partySize) => {
           }
         : table
     ));
-console.log('Before matrix update - current matrix:', props.onUpdateMatrix ? 'available' : 'missing');
-updateMatrixForManualSeating(pendingOccupiedTable.id, partySize);
-console.log('After matrix update call');
+
     // ✅ NEW: Update matrix for fairness tracking
     updateMatrixForManualSeating(pendingOccupiedTable.id, partySize);
 
     // Clean up modal state
     setShowPartySizeModal(false);
     setPendingOccupiedTable(null);
-  };
+  }, [pendingOccupiedTable, updateMatrixForManualSeating]);
 
   // ✅ NEW: Handle modal cancellation
-  const handlePartySizeCancel = () => {
+  const handlePartySizeCancel = useCallback(() => {
     setShowPartySizeModal(false);
     setPendingOccupiedTable(null);
-  };
+  }, []);
 
-  // Table combining functionality (unchanged)
-  const combineSelectedTables = () => {
+  // Table combining functionality
+  const combineSelectedTables = useCallback(() => {
     if (selectedTables.size < 2) return;
 
     const selectedTableIds = Array.from(selectedTables);
@@ -411,9 +411,9 @@ console.log('After matrix update call');
 
     setTables(prev => prev.filter(table => !selectedTableIds.includes(table.id)));
     setSelectedTables(new Set());
-  };
+  }, [selectedTables, tables]);
 
-  const separateCombinedTable = (combinedId) => {
+  const separateCombinedTable = useCallback((combinedId) => {
     const combinedTable = combinedTables.get(combinedId);
     if (!combinedTable) return;
 
@@ -427,10 +427,10 @@ console.log('After matrix update call');
       newMap.delete(combinedId);
       return newMap;
     });
-  };
+  }, [combinedTables, tables]);
 
-  // Styling functions (unchanged)
-  const getTableStateColor = (state, isActive) => {
+  // Styling functions
+  const getTableStateColor = useCallback((state, isActive) => {
     if (!isActive) {
       return 'bg-gray-50 border-gray-300 text-gray-400';
     }
@@ -441,7 +441,7 @@ console.log('After matrix update call');
       case 'assigned': return 'bg-yellow-100 border-yellow-400 text-yellow-800';
       default: return 'bg-gray-100 border-gray-400 text-gray-800';
     }
-  };
+  }, []);
 
   return (
     <div className="h-full bg-white flex flex-col">

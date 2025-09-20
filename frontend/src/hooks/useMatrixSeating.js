@@ -11,7 +11,25 @@ export const useMatrixSeating = (waiters, tables, waitlist) => {
 	const [pendingAssignments, setPendingAssignments] = useState([]);
 	const [matrixVersion, setMatrixVersion] = useState(0);
 
-	// Get waiters who have available tables for specific party size
+	// Get table waiter from assignments - MOVED UP to avoid dependency issues
+	const getTableWaiter = useCallback((tableId) => {
+		for (let waiterId = 1; waiterId <= 5; waiterId++) {
+			if (WAITER_ASSIGNMENTS[waiterId]?.includes(tableId)) {
+				return waiterId;
+			}
+		}
+		return null;
+	}, []);
+
+	// Check if table or party has pending assignment - MOVED UP
+	const isPendingAssignment = useCallback((tableId = null, partyId = null) => {
+		return pendingAssignments.some(assignment =>
+			(tableId && assignment.tableId === tableId) ||
+			(partyId && assignment.partyId === partyId)
+		);
+	}, [pendingAssignments]);
+
+	// Get waiters who have available tables for specific party size - FIXED DEPENDENCIES
 	const getWaitersWithAvailableTables = useCallback((partySize, excludeWaiters = []) => {
 		return waiters
 			.filter(waiter => !excludeWaiters.includes(waiter.id))
@@ -31,27 +49,9 @@ export const useMatrixSeating = (waiters, tables, waitlist) => {
 				...waiter,
 				index: waiters.findIndex(w => w.id === waiter.id)
 			}));
-	}, [waiters, tables]);
+	}, [waiters, tables, getTableWaiter, isPendingAssignment]);
 
-	// Get table waiter from assignments
-	const getTableWaiter = useCallback((tableId) => {
-		for (let waiterId = 1; waiterId <= 5; waiterId++) {
-			if (WAITER_ASSIGNMENTS[waiterId]?.includes(tableId)) {
-				return waiterId;
-			}
-		}
-		return null;
-	}, []);
-
-	// Check if table or party has pending assignment
-	const isPendingAssignment = useCallback((tableId = null, partyId = null) => {
-		return pendingAssignments.some(assignment =>
-			(tableId && assignment.tableId === tableId) ||
-			(partyId && assignment.partyId === partyId)
-		);
-	}, [pendingAssignments]);
-
-	// Find best table for waiter and party
+	// Find best table for waiter and party - FIXED DEPENDENCIES
 	const getBestTableForWaiterAndParty = useCallback((waiter, partySize) => {
 		const waiterTables = tables
 			.filter(table => getTableWaiter(table.id) === waiter.id)
@@ -72,7 +72,7 @@ export const useMatrixSeating = (waiters, tables, waitlist) => {
 		});
 	}, [tables, getTableWaiter, isPendingAssignment]);
 
-	// Calculate confidence score for suggestion
+	// Calculate confidence score for suggestion - FIXED DEPENDENCIES
 	const calculateConfidence = useCallback((party, table, waiter) => {
 		let confidence = 100;
 
@@ -92,7 +92,7 @@ export const useMatrixSeating = (waiters, tables, waitlist) => {
 		return Math.max(50, confidence);
 	}, [matrixService, waiters.length]);
 
-	// Generate reason for suggestion
+	// Generate reason for suggestion - FIXED DEPENDENCIES
 	const generateReason = useCallback((party, table, waiter) => {
 		const partySizeIndex = matrixService.getPartySizeIndex(party.partySize);
 		const count = matrixService.matrix[waiter.index][partySizeIndex];
@@ -104,7 +104,7 @@ export const useMatrixSeating = (waiters, tables, waitlist) => {
 		}
 	}, [matrixService]);
 
-	// Generate smart suggestions - NOW WRAPPED IN useCallback
+	// Generate smart suggestions - FIXED DEPENDENCIES
 	const generateSuggestions = useCallback(() => {
 		const newSuggestions = [];
 
@@ -155,7 +155,7 @@ export const useMatrixSeating = (waiters, tables, waitlist) => {
 		generateReason
 	]);
 
-	// Assign party to table
+	// Assign party to table - FIXED DEPENDENCIES
 	const assignPartyToTable = useCallback((partyId, tableId) => {
 		const party = waitlist.find(p => p._id === partyId);
 		const table = tables.find(t => t.id === tableId);
@@ -179,8 +179,7 @@ export const useMatrixSeating = (waiters, tables, waitlist) => {
 		return true;
 	}, [waitlist, tables, waiters, getTableWaiter]);
 
-	// Confirm party is seated (updates matrix)
-	// Modify the confirmSeating function to trigger re-render:
+	// Confirm party is seated (updates matrix) - FIXED DEPENDENCIES
 	const confirmSeating = useCallback((assignmentId) => {
 		const assignment = pendingAssignments.find(a => a.id === assignmentId);
 		if (!assignment) return;
@@ -192,20 +191,20 @@ export const useMatrixSeating = (waiters, tables, waitlist) => {
 			const waiterIndex = waiters.findIndex(w => w.id === waiter.id);
 			matrixService.seatParty(waiterIndex, party.partySize);
 
-			// ADD THIS LINE: Force re-render when matrix changes
+			// Force re-render when matrix changes
 			setMatrixVersion(prev => prev + 1);
 
 			setPendingAssignments(prev => prev.filter(a => a.id !== assignmentId));
 		}
 	}, [pendingAssignments, waitlist, waiters, matrixService]);
 
-
-	// Also expose a manual update function for external matrix updates:
+	// Manual update function for external matrix updates - FIXED DEPENDENCIES
 	const updateMatrix = useCallback((waiterIndex, partySize) => {
 		matrixService.seatParty(waiterIndex, partySize);
 		setMatrixVersion(prev => prev + 1);
 	}, [matrixService]);
 
+	// Cancel assignment - ALREADY CORRECT
 	const cancelAssignment = useCallback((assignmentId) => {
 		setPendingAssignments(prev => prev.filter(a => a.id !== assignmentId));
 	}, []);
@@ -230,6 +229,6 @@ export const useMatrixSeating = (waiters, tables, waitlist) => {
 		generateSuggestions,
 		getFairnessScore: () => matrixService.getFairnessScore(),
 		resetMatrix: () => matrixService.reset(),
-		matrixService  // ✅ ADDED: Expose the matrix service
+		matrixService
 	};
 };

@@ -35,6 +35,9 @@ export const Dashboard = ({ user, onLogout }) => {
     updateMatrix  // NEW: Get the proper matrix update function
   } = useMatrixSeating(activeWaiters, MOCK_TABLES, waitlist);
 
+  // Track waitlist seating to prevent duplicate matrix updates
+  const waitlistSeatingRef = useRef(new Set());
+
   // Socket.IO setup for device synchronization
   useEffect(() => {
     const socket = io('http://localhost:3001');
@@ -85,6 +88,9 @@ export const Dashboard = ({ user, onLogout }) => {
     if (availableTable && floorPlanRef.current) {
       const partyInfo = { name: party.partyName, size: party.partySize };
       
+      // CRITICAL: Mark this as waitlist seating to prevent duplicate matrix updates
+      waitlistSeatingRef.current.add(availableTable.id);
+      
       // Update the floor plan table to "occupied"
       floorPlanRef.current.updateTableState(
         availableTable.id, 
@@ -101,6 +107,11 @@ export const Dashboard = ({ user, onLogout }) => {
           updateMatrix(waiterIndex, party.partySize);
         }
       }
+
+      // Clean up tracking after a delay
+      setTimeout(() => {
+        waitlistSeatingRef.current.delete(availableTable.id);
+      }, 1000);
 
       // Broadcast to other devices (waiter iPad)
       const socket = io('http://localhost:3001');
@@ -133,10 +144,15 @@ export const Dashboard = ({ user, onLogout }) => {
     );
   };
 
-  // FIXED: Create a separate function for manual table seating to prevent conflicts
-  const handleManualTableSeating = (waiterIndex, partySize) => {
-    console.log('Dashboard received manual table seating:', waiterIndex, partySize);
-    updateMatrix(waiterIndex, partySize);
+  // FIXED: Pass tracking info to prevent duplicate matrix updates
+  const handleManualTableSeating = (waiterIndex, partySize, tableId) => {
+    // Only update matrix if this is NOT from waitlist seating
+    if (!waitlistSeatingRef.current.has(tableId)) {
+      console.log('Dashboard received manual table seating:', waiterIndex, partySize);
+      updateMatrix(waiterIndex, partySize);
+    } else {
+      console.log('Skipping matrix update - this is from waitlist seating');
+    }
   };
 
   if (loading && waitlist.length === 0) {
@@ -170,7 +186,7 @@ export const Dashboard = ({ user, onLogout }) => {
       <CenterPanel>
         <FloorPlanView
           ref={floorPlanRef}
-          onUpdateMatrix={handleManualTableSeating}  // FIXED: Use separate handler for manual seating
+          onUpdateMatrix={(waiterIndex, partySize, tableId) => handleManualTableSeating(waiterIndex, partySize, tableId)}
         />
       </CenterPanel>
 
