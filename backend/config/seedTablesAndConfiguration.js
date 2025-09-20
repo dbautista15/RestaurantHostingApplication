@@ -253,24 +253,45 @@ const seedTablesAndConfigurations = async () => {
 
 // Helper function to apply a shift configuration
 const applySectionConfiguration = async (config) => {
-	try {
-		// Reset all tables to no section
-		await Table.updateMany({}, { section: null });
+  try {
+    // Reset all tables to no section
+    await Table.updateMany({}, { section: null });
 
-		// Apply the configuration
-		for (const sectionConfig of config.activeSections) {
-			await Table.updateMany(
-				{ tableNumber: { $in: sectionConfig.assignedTables } },
-				{ section: sectionConfig.sectionNumber }
-			);
-		}
+    // DEBUG LINES
+    console.log('=== DEBUG: Applying Configuration ===');
+    console.log('Config name:', config.shiftName);
+    console.log('Active sections:', config.activeSections);
+    
+    // Check what tables actually exist in database
+    const allTables = await Table.find({}, 'tableNumber');
+    console.log('Tables in database:', allTables.map(t => t.tableNumber));
 
-		console.log(`Applied configuration: ${config.shiftName}`);
-		return true;
-	} catch (error) {
-		console.error('Error applying configuration:', error);
-		return false;
-	}
+    // Apply the configuration (KEEP ONLY THIS ONE)
+    for (const sectionConfig of config.activeSections) {
+      console.log(`Assigning section ${sectionConfig.sectionNumber} these tables:`, sectionConfig.assignedTables);
+      
+      const updateResult = await Table.updateMany(
+        { tableNumber: { $in: sectionConfig.assignedTables } },
+        { section: sectionConfig.sectionNumber }
+      );
+      
+      console.log(`Section ${sectionConfig.sectionNumber} update result:`, updateResult);
+    }
+
+    // REMOVE THIS DUPLICATE BLOCK:
+    // for (const sectionConfig of config.activeSections) {
+    //   await Table.updateMany(
+    //     { tableNumber: { $in: sectionConfig.assignedTables } },
+    //     { section: sectionConfig.sectionNumber }
+    //   );
+    // }
+
+    console.log(`Applied configuration: ${config.shiftName}`);
+    return true;
+  } catch (error) {
+    console.error('Error applying configuration:', error);
+    return false;
+  }
 };
 
 // Run the seeding script

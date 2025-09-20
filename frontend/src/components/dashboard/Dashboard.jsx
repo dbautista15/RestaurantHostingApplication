@@ -8,8 +8,8 @@ import { FloorPlanView } from '../floorplan/FloorPlanView';
 import { SuggestionsPanel } from '../seating/SuggestionsPanel';
 import { ThreePanelLayout, LeftPanel, CenterPanel, RightPanel } from '../shared/ThreePanelLayout';
 import { io } from 'socket.io-client';
-// ✅ CONSOLIDATED: Import from centralized constants
-import { MOCK_TABLES, WAITER_ASSIGNMENTS } from '../../config/constants';
+// CONSOLIDATED: Import from centralized constants
+import { MOCK_TABLES } from '../../config/constants';
 
 export const Dashboard = ({ user, onLogout }) => {
   const { shiftData } = useShift();
@@ -32,7 +32,7 @@ export const Dashboard = ({ user, onLogout }) => {
     pendingAssignments,
     confirmSeating,
     cancelAssignment,
-    matrixService
+    updateMatrix  // NEW: Get the proper matrix update function
   } = useMatrixSeating(activeWaiters, MOCK_TABLES, waitlist);
 
   // Socket.IO setup for device synchronization
@@ -57,17 +57,25 @@ export const Dashboard = ({ user, onLogout }) => {
     };
   }, []);
 
-  // Function to find which waiter serves a table
+  // Helper function to get table waiter
   const getTableWaiter = (tableId) => {
-    for (let waiterId = 1; waiterId <= 7; waiterId++) {
-      if (WAITER_ASSIGNMENTS[waiterId]?.includes(tableId)) {
+    const waiterAssignments = {
+      1: ['A13', 'A14', 'A15', 'A16'],
+      2: ['A12', 'A11', 'A10', 'A9'], 
+      3: ['A1', 'A3', 'A4', 'A5'],
+      4: ['A2', 'A6', 'A7', 'A8'],
+      5: ['B1', 'B2', 'B3', 'B4', 'B5', 'B6']
+    };
+    
+    for (let waiterId = 1; waiterId <= 5; waiterId++) {
+      if (waiterAssignments[waiterId]?.includes(tableId)) {
         return waiterId;
       }
     }
     return null;
   };
 
-  // Enhanced: Now updates floor plan AND matrix AND syncs to other devices
+  // Handle seating parties from waitlist - FIXED: Prevent duplicate matrix updates
   const handleSeatParty = async (partyId, status) => {
     const party = waitlist.find(p => p._id === partyId);
     if (!party) return;
@@ -84,6 +92,16 @@ export const Dashboard = ({ user, onLogout }) => {
         partyInfo
       );
 
+      // FIXED: Handle matrix update directly here to prevent duplicates
+      const waiterSection = getTableWaiter(availableTable.id);
+      if (waiterSection) {
+        const waiterIndex = activeWaiters.findIndex(w => w.section === waiterSection);
+        if (waiterIndex !== -1) {
+          console.log('Dashboard updating matrix for waitlist seating:', waiterIndex, party.partySize);
+          updateMatrix(waiterIndex, party.partySize);
+        }
+      }
+
       // Broadcast to other devices (waiter iPad)
       const socket = io('http://localhost:3001');
       socket.emit('sync_table_state', {
@@ -93,16 +111,6 @@ export const Dashboard = ({ user, onLogout }) => {
         timestamp: new Date()
       });
       socket.disconnect(); // Clean up temporary connection
-
-      // Update the fairness matrix
-      const waiterId = getTableWaiter(availableTable.id);
-      if (waiterId && matrixService) {
-        const waiterIndex = activeWaiters.findIndex(w => w.id === waiterId);
-        if (waiterIndex !== -1) {
-          matrixService.seatParty(waiterIndex, party.partySize);
-          console.log(`Matrix updated: Waiter ${waiterId} served party of ${party.partySize}`);
-        }
-      }
     }
 
     // Update the waitlist (remove the party)
@@ -123,6 +131,12 @@ export const Dashboard = ({ user, onLogout }) => {
     return suitableTables.find(table => 
       table.capacity >= partySize && table.capacity <= partySize + 2
     );
+  };
+
+  // FIXED: Create a separate function for manual table seating to prevent conflicts
+  const handleManualTableSeating = (waiterIndex, partySize) => {
+    console.log('Dashboard received manual table seating:', waiterIndex, partySize);
+    updateMatrix(waiterIndex, partySize);
   };
 
   if (loading && waitlist.length === 0) {
@@ -154,7 +168,10 @@ export const Dashboard = ({ user, onLogout }) => {
       </LeftPanel>
 
       <CenterPanel>
-        <FloorPlanView ref={floorPlanRef} />
+        <FloorPlanView
+          ref={floorPlanRef}
+          onUpdateMatrix={handleManualTableSeating}  // FIXED: Use separate handler for manual seating
+        />
       </CenterPanel>
 
       <RightPanel>

@@ -1,8 +1,72 @@
 // frontend/src/components/floorplan/FloorPlanView.jsx
-// ✅ UPDATED IMPORTS: Use centralized constants
-import { WAITER_COLORS, WAITER_ASSIGNMENTS, RESTAURANT_LAYOUT } from '../../config/constants';
+// ✅ UPDATED: Now includes party size modal for manual seating
+import { WAITER_COLORS } from '../../config/constants';
 import React, { useState, useEffect, useRef, useCallback, useImperativeHandle } from 'react';
 import { useShift } from '../../context/ShiftContext';
+
+// ✅ NEW: Party Size Modal Component
+const PartySizeModal = ({ isOpen, tableNumber, tableCapacity, onConfirm, onCancel }) => {
+  const [partySize, setPartySize] = useState(tableCapacity || 4);
+
+  useEffect(() => {
+    if (isOpen) {
+      setPartySize(tableCapacity || 4);
+    }
+  }, [isOpen, tableCapacity]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (partySize >= 1 && partySize <= 20) {
+      onConfirm(partySize);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white p-6 rounded-lg w-full max-w-sm mx-4">
+        <h3 className="text-lg font-semibold mb-4">Seat Party at Table {tableNumber}</h3>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Party Size
+            </label>
+            <input
+              type="number"
+              value={partySize}
+              onChange={(e) => setPartySize(parseInt(e.target.value) || 1)}
+              min="1"
+              max="20"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-lg text-center"
+              autoFocus
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Table capacity: {tableCapacity} people
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Seat Party
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
 
 export const FloorPlanView = React.forwardRef((props, ref) => {
   const { shiftData, removeServer, addServer } = useShift();
@@ -15,30 +79,52 @@ export const FloorPlanView = React.forwardRef((props, ref) => {
   const [combinedTables, setCombinedTables] = useState(new Map());
   const [showAddServer, setShowAddServer] = useState(false);
   const [newServerName, setNewServerName] = useState('');
+  
+  // ✅ NEW: Party size modal state
+  const [showPartySizeModal, setShowPartySizeModal] = useState(false);
+  const [pendingOccupiedTable, setPendingOccupiedTable] = useState(null);
+  
   const gridRef = useRef(null);
 
-  // ✅ Use waiterCount from shift context instead of local state
+  // ✅ Use waiterCount from shift context
   const waiterCount = shiftData.serverCount || 4;
   const activeWaiters = shiftData.serverOrder || [];
 
-  // ✅ NEW: Add the simple table update function
-  const updateTableState = useCallback((tableId, newState, partyInfo = null) => {
-    setTables(prev => prev.map(table => 
-      table.id === tableId 
-        ? { 
-            ...table, 
-            state: newState,
-            // If seating a party, optionally store party info on the table
-            occupiedBy: newState === 'occupied' ? partyInfo : null
-          }
-        : table
-    ));
-  }, []);
+// In FloorPlanView.jsx - modify the updateTableState function:
+const updateTableState = useCallback(async (tableId, newState, partyInfo = null) => {
+  // Update local state immediately for responsive UI
+  setTables(prev => prev.map(table => 
+    table.id === tableId 
+      ? { 
+          ...table, 
+          state: newState,
+          occupiedBy: newState === 'occupied' ? partyInfo : null
+        }
+      : table
+  ));
 
-  // ✅ NEW: Expose the function to parent components
-  useImperativeHandle(ref, () => ({
-    updateTableState
-  }), [updateTableState]);
+  // ADD THIS: Persist to backend
+  try {
+    const token = localStorage.getItem('token');
+    const requestBody = { newState };
+    
+    if (newState === 'occupied' && partyInfo) {
+      requestBody.partySize = partyInfo.size;
+    }
+
+    await fetch(`http://localhost:3000/api/tables/${tableId}/state`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(requestBody)
+    });
+  } catch (error) {
+    console.error('Failed to persist table state:', error);
+    // Could optionally revert local state here if needed
+  }
+}, []);
 
   const handleRemoveServer = (serverId) => {
     const result = removeServer(serverId);
@@ -57,65 +143,127 @@ export const FloorPlanView = React.forwardRef((props, ref) => {
     }
   };
 
-  // ❌ REMOVED: Duplicate WAITER_ASSIGNMENTS - now imported from constants
-  // ❌ REMOVED: Hardcoded waiter assignments object
-
   const GRID_SIZE = 30;
   const GRID_COLS = 22;
   const GRID_ROWS = 18;
 
-  // 🔧 FIXED: Initialize tables from localStorage first, then fallback to config
-  useEffect(() => {
-    // Try to load saved table states from localStorage
+  // ✅ Load tables from backend API
+  const loadTablesFromBackend = async () => {
     try {
-      const savedTables = localStorage.getItem('restaurant-table-states');
-      if (savedTables) {
-        const parsedTables = JSON.parse(savedTables);
-        setTables(parsedTables);
-        console.log('Loaded table states from localStorage');
-      } else {
-        // ✅ CONSOLIDATED: Use centralized restaurant layout
-        setTables(RESTAURANT_LAYOUT);
-        console.log('Using default restaurant layout');
+      const response = await fetch('http://localhost:3000/api/tables', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch tables');
       }
+      
+      const data = await response.json();
+      console.log('Loaded tables from backend:', data.tables);
+      
+      // Transform backend data to match frontend format
+      const transformedTables = data.tables.map(table => ({
+        id: table.tableNumber,
+        number: table.tableNumber,
+        section: table.section,
+        capacity: table.capacity,
+        state: table.state,
+        x: getTablePosition(table.tableNumber).x,
+        y: getTablePosition(table.tableNumber).y,
+        occupiedBy: table.occupiedBy || null
+      }));
+      
+      setTables(transformedTables);
+      
     } catch (error) {
-      console.error('Error loading table states:', error);
-      // ✅ CONSOLIDATED: If there's an error, fall back to centralized layout
-      setTables(RESTAURANT_LAYOUT);
+      console.error('Error loading tables from backend:', error);
+      // Fallback to hardcoded layout if backend fails
+      const fallbackTables = [
+        { id: 'B1', number: 'B1', section: null, x: 2, y: 13, capacity: 4, state: 'available' },
+        { id: 'B2', number: 'B2', section: null, x: 5, y: 13, capacity: 4, state: 'available' },
+        { id: 'B6', number: 'B6', section: null, x: 18, y: 15, capacity: 2, state: 'available' },
+        { id: 'A8', number: 'A8', section: null, x: 18, y: 13, capacity: 6, state: 'available' },
+        { id: 'A16', number: 'A16', section: null, x: 2, y: 9, capacity: 4, state: 'available' },
+        { id: 'A9', number: 'A9', section: null, x: 5, y: 9, capacity: 4, state: 'available' },
+        { id: 'A6', number: 'A6', section: null, x: 18, y: 9, capacity: 6, state: 'available' },
+        { id: 'A7', number: 'A7', section: null, x: 18, y: 11, capacity: 2, state: 'available' },
+        { id: 'A15', number: 'A15', section: null, x: 2, y: 5, capacity: 4, state: 'available' },
+        { id: 'A10', number: 'A10', section: null, x: 5, y: 5, capacity: 4, state: 'available' },
+        { id: 'A4', number: 'A4', section: null, x: 18, y: 5, capacity: 2, state: 'available' },
+        { id: 'A5', number: 'A5', section: null, x: 18, y: 7, capacity: 6, state: 'available' },
+        { id: 'A13', number: 'A13', section: null, x: 2, y: 1, capacity: 6, state: 'available' },
+        { id: 'A12', number: 'A12', section: null, x: 5, y: 1, capacity: 4, state: 'available' },
+        { id: 'A1', number: 'A1', section: null, x: 15, y: 1, capacity: 4, state: 'available' },
+        { id: 'A2', number: 'A2', section: null, x: 18, y: 1, capacity: 2, state: 'available' },
+        { id: 'A14', number: 'A14', section: null, x: 2, y: 3, capacity: 4, state: 'available' },
+        { id: 'A11', number: 'A11', section: null, x: 5, y: 3, capacity: 4, state: 'available' },
+        { id: 'A3', number: 'A3', section: null, x: 18, y: 3, capacity: 4, state: 'available' },
+        { id: 'B3', number: 'B3', section: null, x: 3, y: 16, capacity: 4, state: 'available' },
+        { id: 'B4', number: 'B4', section: null, x: 12, y: 16, capacity: 4, state: 'available' },
+        { id: 'B5', number: 'B5', section: null, x: 15, y: 16, capacity: 2, state: 'available' }
+      ];
+      setTables(fallbackTables);
     }
-    
+  };
+
+  // ✅ Helper function to get table positions
+  const getTablePosition = (tableNumber) => {
+    const positions = {
+      'B1': { x: 2, y: 13 }, 'B2': { x: 5, y: 13 }, 'B6': { x: 18, y: 15 }, 'A8': { x: 18, y: 13 },
+      'A16': { x: 2, y: 9 }, 'A9': { x: 5, y: 9 }, 'A6': { x: 18, y: 9 }, 'A7': { x: 18, y: 11 },
+      'A15': { x: 2, y: 5 }, 'A10': { x: 5, y: 5 }, 'A4': { x: 18, y: 5 }, 'A5': { x: 18, y: 7 },
+      'A13': { x: 2, y: 1 }, 'A12': { x: 5, y: 1 }, 'A1': { x: 15, y: 1 }, 'A2': { x: 18, y: 1 },
+      'A14': { x: 2, y: 3 }, 'A11': { x: 5, y: 3 }, 'A3': { x: 18, y: 3 },
+      'B3': { x: 3, y: 16 }, 'B4': { x: 12, y: 16 }, 'B5': { x: 15, y: 16 }
+    };
+    return positions[tableNumber] || { x: 0, y: 0 };
+  };
+
+  // ✅ Load tables when component mounts
+  useEffect(() => {
+    loadTablesFromBackend();
     setSelectedTables(new Set());
     setCombinedTables(new Map());
   }, []);
 
-  // 🔧 NEW: Save table states to localStorage whenever tables change
+  // ✅ Reload tables when shift data changes
   useEffect(() => {
-    if (tables.length > 0) {
-      try {
-        localStorage.setItem('restaurant-table-states', JSON.stringify(tables));
-      } catch (error) {
-        console.error('Error saving table states:', error);
-      }
+    if (shiftData.lastChange) {
+      console.log('Shift changed, reloading tables:', shiftData.lastChange);
+      loadTablesFromBackend();
     }
-  }, [tables]);
+  }, [shiftData.lastChange]);
 
   // Helper functions
-  const getActiveWaiters = () => Array.from({length: waiterCount}, (_, i) => i + 1);
+  const getActiveWaiters = () => activeWaiters.map(waiter => waiter.id);
   
   const isTableActive = (tableId) => {
-    return getActiveWaiters().some(waiterId => 
-      WAITER_ASSIGNMENTS[waiterId]?.includes(tableId)
-    );
+    const table = tables.find(t => t.id === tableId);
+    return table && table.section !== null;
   };
 
   const getTableWaiter = (tableId) => {
-    for (let waiterId = 1; waiterId <= 7; waiterId++) {
-      if (WAITER_ASSIGNMENTS[waiterId]?.includes(tableId)) {
-        return waiterId;
-      }
-    }
-    return null;
+    const table = tables.find(t => t.id === tableId);
+    return table ? table.section : null;
   };
+
+// In FloorPlanView.jsx - modify updateMatrixForManualSeating
+const updateMatrixForManualSeating = (tableId, partySize) => {
+  const waiterSection = getTableWaiter(tableId);
+  if (!waiterSection) return;
+
+  const waiterIndex = activeWaiters.findIndex(w => w.section === waiterSection);
+  if (waiterIndex === -1) return;
+
+  // ADD THIS CHECK: Only update matrix for truly manual seating
+  // (not when it's coming from waitlist seating)
+  if (props.onUpdateMatrix) {
+    console.log('🎯 Manual seating matrix update:', waiterIndex, partySize);
+    props.onUpdateMatrix(waiterIndex, partySize);
+  }
+};
 
   // Drag and drop handlers (unchanged)
   const handleMouseDown = (e, table) => {
@@ -177,18 +325,64 @@ export const FloorPlanView = React.forwardRef((props, ref) => {
     }
   };
 
+  // ✅ UPDATED: Modified to handle party size modal for 'occupied' state
   const toggleTableState = (tableId) => {
     if (!isTableActive(tableId)) return;
     
-    setTables(prev => prev.map(table => {
-      if (table.id === tableId) {
-        const states = ['available', 'assigned', 'occupied'];
-        const currentIndex = states.indexOf(table.state);
-        const nextIndex = (currentIndex + 1) % states.length;
-        return { ...table, state: states[nextIndex] };
-      }
-      return table;
-    }));
+    const table = tables.find(t => t.id === tableId);
+    if (!table) return;
+
+    const states = ['available', 'assigned', 'occupied'];
+    const currentIndex = states.indexOf(table.state);
+    const nextState = states[(currentIndex + 1) % states.length];
+
+    // ✅ NEW: If transitioning to 'occupied', show party size modal
+    if (nextState === 'occupied') {
+      setPendingOccupiedTable(table);
+      setShowPartySizeModal(true);
+      return;
+    }
+
+    // For other state transitions, update normally
+    setTables(prev => prev.map(t => 
+      t.id === tableId ? { ...t, state: nextState } : t
+    ));
+  };
+
+  // ✅ NEW: Handle party size confirmation
+  const handlePartySizeConfirm = (partySize) => {
+    if (!pendingOccupiedTable) return;
+
+    // Update table state to occupied with party info
+    const partyInfo = {
+      name: `Party of ${partySize}`,
+      size: partySize
+    };
+
+    setTables(prev => prev.map(table => 
+      table.id === pendingOccupiedTable.id 
+        ? { 
+            ...table, 
+            state: 'occupied', 
+            occupiedBy: partyInfo 
+          }
+        : table
+    ));
+console.log('Before matrix update - current matrix:', props.onUpdateMatrix ? 'available' : 'missing');
+updateMatrixForManualSeating(pendingOccupiedTable.id, partySize);
+console.log('After matrix update call');
+    // ✅ NEW: Update matrix for fairness tracking
+    updateMatrixForManualSeating(pendingOccupiedTable.id, partySize);
+
+    // Clean up modal state
+    setShowPartySizeModal(false);
+    setPendingOccupiedTable(null);
+  };
+
+  // ✅ NEW: Handle modal cancellation
+  const handlePartySizeCancel = () => {
+    setShowPartySizeModal(false);
+    setPendingOccupiedTable(null);
   };
 
   // Table combining functionality (unchanged)
@@ -223,7 +417,7 @@ export const FloorPlanView = React.forwardRef((props, ref) => {
     const combinedTable = combinedTables.get(combinedId);
     if (!combinedTable) return;
 
-    const originalTables = RESTAURANT_LAYOUT.filter(table => 
+    const originalTables = tables.filter(table => 
       combinedTable.tableIds.includes(table.id)
     );
 
@@ -235,7 +429,7 @@ export const FloorPlanView = React.forwardRef((props, ref) => {
     });
   };
 
-  // Styling functions
+  // Styling functions (unchanged)
   const getTableStateColor = (state, isActive) => {
     if (!isActive) {
       return 'bg-gray-50 border-gray-300 text-gray-400';
@@ -257,7 +451,6 @@ export const FloorPlanView = React.forwardRef((props, ref) => {
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Floor Plan</h2>
             <p className="text-sm text-gray-600">
-              {/* ✅ Show shift info instead of generic text */}
               {waiterCount} servers working • Drag tables • Double-click to change state
             </p>
           </div>
@@ -331,7 +524,7 @@ export const FloorPlanView = React.forwardRef((props, ref) => {
           </div>
         </div>
 
-        {/* ✅ Updated Waiter Legend - uses actual waiter data */}
+        {/* Waiter Legend */}
         <div className="flex flex-wrap gap-2">
           {activeWaiters.map(waiter => (
             <div key={waiter.id} className="flex items-center gap-1">
@@ -350,7 +543,7 @@ export const FloorPlanView = React.forwardRef((props, ref) => {
         </div>
       </div>
 
-      {/* Floor Plan Grid (unchanged except for comments) */}
+      {/* Floor Plan Grid */}
       <div className="flex-1 overflow-auto p-4">
         <div
           ref={gridRef}
@@ -365,9 +558,9 @@ export const FloorPlanView = React.forwardRef((props, ref) => {
             backgroundSize: `${GRID_SIZE}px ${GRID_SIZE}px`
           }}
         >
-          {/* ✅ Waiter Section Backgrounds - now based on shift data */}
+          {/* Waiter Section Backgrounds */}
           {getActiveWaiters().map(waiterNum => {
-            const waiterTables = tables.filter(t => getTableWaiter(t.id) === waiterNum);
+            const waiterTables = tables.filter(t => t.section === waiterNum);
             if (waiterTables.length === 0) return null;
 
             const minX = Math.min(...waiterTables.map(t => t.x));
@@ -391,7 +584,7 @@ export const FloorPlanView = React.forwardRef((props, ref) => {
             );
           })}
 
-          {/* Individual Tables (unchanged) */}
+          {/* Individual Tables */}
           {tables.map((table) => {
             const isActive = isTableActive(table.id);
             const waiterNum = getTableWaiter(table.id);
@@ -417,7 +610,6 @@ export const FloorPlanView = React.forwardRef((props, ref) => {
                 <div className="w-full h-full rounded border-2 flex flex-col items-center justify-center text-xs font-medium p-1">
                   <div className="font-bold">{table.number}</div>
                   <div className="text-[10px] opacity-75">{table.capacity}</div>
-                  {/* ✅ NEW: Show party name if table is occupied by someone */}
                   {table.occupiedBy && (
                     <div className="text-[8px] opacity-80 text-center">
                       {table.occupiedBy.name}
@@ -431,7 +623,7 @@ export const FloorPlanView = React.forwardRef((props, ref) => {
             );
           })}
 
-          {/* Combined Tables (unchanged) */}
+          {/* Combined Tables */}
           {Array.from(combinedTables.values()).map((combined) => (
             <div
               key={combined.id}
@@ -454,7 +646,7 @@ export const FloorPlanView = React.forwardRef((props, ref) => {
         </div>
       </div>
 
-      {/* Floor Plan Stats (unchanged) */}
+      {/* Floor Plan Stats */}
       <div className="p-4 border-t border-gray-200 bg-gray-50">
         <div className="grid grid-cols-4 gap-4 text-center">
           <div>
@@ -483,9 +675,17 @@ export const FloorPlanView = React.forwardRef((props, ref) => {
           </div>
         </div>
       </div>
+
+      {/* ✅ NEW: Party Size Modal */}
+      <PartySizeModal
+        isOpen={showPartySizeModal}
+        tableNumber={pendingOccupiedTable?.number}
+        tableCapacity={pendingOccupiedTable?.capacity}
+        onConfirm={handlePartySizeConfirm}
+        onCancel={handlePartySizeCancel}
+      />
     </div>
   );
 });
 
-// ✅ NEW: Add display name for debugging
 FloorPlanView.displayName = 'FloorPlanView';

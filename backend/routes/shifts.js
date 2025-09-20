@@ -186,6 +186,10 @@ router.post('/quick-setup', authenticateToken, requireRole(['host']), async (req
   try {
     const { serverCount } = req.body;
     
+    // ADD THESE DEBUG LINES:
+    console.log('=== QUICK SETUP DEBUG ===');
+    console.log('Requested server count:', serverCount);
+    
     if (!serverCount || serverCount < 4 || serverCount > 10) {
       return res.status(400).json({
         error: 'Server count must be between 4 and 10'
@@ -197,22 +201,30 @@ router.post('/quick-setup', authenticateToken, requireRole(['host']), async (req
       serverCount: { $lte: serverCount }
     }).sort({ serverCount: -1 });
 
+    console.log('Found config:', bestConfig ? bestConfig.shiftName : 'NONE');
+
     if (!bestConfig) {
       // If no configuration exists for this server count, use the 4-server config
       bestConfig = await SectionConfiguration.findOne({ serverCount: 4 });
+      console.log('Fallback to 4-server config:', bestConfig ? bestConfig.shiftName : 'NONE');
     }
 
     if (!bestConfig) {
+      console.log('ERROR: No configurations found in database!');
       return res.status(404).json({
         error: 'No shift configurations available. Please create one first.'
       });
     }
 
+    console.log('About to apply configuration:', bestConfig.shiftName);
+    
     // Apply the configuration
     await SectionConfiguration.updateMany({}, { isActive: false });
     bestConfig.isActive = true;
     await bestConfig.save();
     await applyConfigurationToTables(bestConfig);
+
+    console.log('Configuration applied successfully');
 
     res.status(200).json({
       success: true,
@@ -231,17 +243,30 @@ router.post('/quick-setup', authenticateToken, requireRole(['host']), async (req
  */
 async function applyConfigurationToTables(config, options = {}) {
   try {
+    // ADD DEBUG LOGS TO THIS FUNCTION TOO
+    console.log('=== APPLYING CONFIGURATION TO TABLES ===');
+    console.log('Config name:', config.shiftName);
+    console.log('Active sections:', config.activeSections.length);
+    
     // Reset all tables to no section
-    await Table.updateMany({}, { 
+    const resetResult = await Table.updateMany({}, { 
       section: null,
       assignedWaiter: null,
       partySize: null,
       state: 'available' // Reset state when reconfiguring
     });
+    
+    console.log('Reset tables result:', resetResult);
+    
+    // Check what tables exist in database
+    const allTables = await Table.find({}, 'tableNumber');
+    console.log('Tables in database:', allTables.map(t => t.tableNumber));
 
     // Apply the configuration
     for (const sectionConfig of config.activeSections) {
       let tablesToAssign = sectionConfig.assignedTables;
+      
+      console.log(`Assigning section ${sectionConfig.sectionNumber} these tables:`, tablesToAssign);
       
       // Apply filters if specified
       if (!options.includePatioArea) {
@@ -253,13 +278,16 @@ async function applyConfigurationToTables(config, options = {}) {
       }
       
       if (tablesToAssign.length > 0) {
-        await Table.updateMany(
+        const updateResult = await Table.updateMany(
           { tableNumber: { $in: tablesToAssign } },
           { section: sectionConfig.sectionNumber }
         );
+        
+        console.log(`Section ${sectionConfig.sectionNumber} update result:`, updateResult);
       }
     }
-
+    
+    console.log('Table configuration complete');
     return true;
   } catch (error) {
     console.error('Error applying configuration to tables:', error);
@@ -268,28 +296,3 @@ async function applyConfigurationToTables(config, options = {}) {
 }
 
 module.exports = router;
-
-/**
- * 🎯 HOW THIS WORKS FOR YOUR RESTAURANT:
- * 
- * SCENARIO 1: Slow Tuesday Morning
- * - Only 1 server working
- * - POST /api/shifts/quick-setup { serverCount: 1 }
- * - System assigns only the easiest tables to manage
- * 
- * SCENARIO 2: Friday Night Rush
- * - 4 servers working + patio is open
- * - POST /api/shifts/quick-setup { serverCount: 4, includePatioArea: true }
- * - System opens all sections including patio
- * 
- * SCENARIO 3: Bad Weather
- * - 3 servers but close patio
- * - POST /api/shifts/quick-setup { serverCount: 3, includePatioArea: false }
- * - System redistributes patio tables to indoor sections
- * 
- * 🚀 BENEFITS:
- * - Servers know exactly which tables are theirs
- * - Management can quickly reconfigure based on staffing
- * - System prevents overburdening servers
- * - Easy to handle weather/seasonal changes
- */

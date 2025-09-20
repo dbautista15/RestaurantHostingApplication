@@ -1,7 +1,7 @@
 export class MatrixSeatService {
   constructor(waiters) {
     this.waiters = waiters;
-    
+
     // Try to load saved matrix from localStorage
     this.loadMatrixFromStorage();
   }
@@ -24,7 +24,7 @@ export class MatrixSeatService {
     } catch (error) {
       console.error('Error loading matrix from storage:', error);
     }
-    
+
     // Create fresh matrix if no valid saved data
     this.matrix = Array(this.waiters.length).fill().map(() => Array(6).fill(0));
   }
@@ -54,7 +54,7 @@ export class MatrixSeatService {
 
     for (let waiter of availableWaiters) {
       const waiterCount = this.matrix[waiter.index][partySizeIndex];
-      
+
       if (waiterCount < lowestCount) {
         lowestCount = waiterCount;
         bestWaiter = waiter;
@@ -63,22 +63,22 @@ export class MatrixSeatService {
       else if (waiterCount === lowestCount) {
         const currentTotal = this.matrix[bestWaiter.index].reduce((a, b) => a + b);
         const waiterTotal = this.matrix[waiter.index].reduce((a, b) => a + b);
-        
+
         if (waiterTotal < currentTotal) {
           bestWaiter = waiter;
         }
       }
     }
-    
+
     return bestWaiter;
   }
 
-  // Update matrix when party is seated - NOW SAVES TO STORAGE
+  // In matrixService.js
   seatParty(waiterIndex, partySize) {
     const partySizeIndex = this.getPartySizeIndex(partySize);
+    console.log(`🎯 Matrix Update: Waiter ${waiterIndex}, Party Size ${partySize}, Cell [${waiterIndex}][${partySizeIndex}] before:`, this.matrix[waiterIndex][partySizeIndex]);
     this.matrix[waiterIndex][partySizeIndex]++;
-    
-    // NEW: Save to localStorage after every update
+    console.log(`🎯 Matrix Update: Cell [${waiterIndex}][${partySizeIndex}] after:`, this.matrix[waiterIndex][partySizeIndex]);
     this.saveMatrixToStorage();
   }
 
@@ -90,7 +90,7 @@ export class MatrixSeatService {
   // Reset matrix (new shift) - NOW CLEARS STORAGE
   reset() {
     this.matrix = Array(this.waiters.length).fill().map(() => Array(6).fill(0));
-    
+
     // NEW: Clear from localStorage
     localStorage.removeItem('restaurant-fairness-matrix');
   }
