@@ -6,23 +6,27 @@ export const ThreePanelLayout = ({ children, user, onLogout, waitlistCount }) =>
   return (
     <div className="h-screen bg-gray-50 flex flex-col">
       {/* App Header */}
-      <div className="bg-white shadow-sm border-b flex-shrink-0">
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 shadow-lg border-b">
         <div className="px-4 py-3 flex justify-between items-center">
-          <div>
-            <h1 className="text-xl font-bold text-gray-800">Smart Seater Host Dashboard</h1>
-            <p className="text-sm text-gray-600">
-              Welcome back, {user.role} • {waitlistCount} parties waiting
-            </p>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
+              🍽️
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-white">SmartSeater Pro</h1>
+              <p className="text-sm text-blue-100">
+                {user.userName} • {user.role} • {waitlistCount} parties waiting
+              </p>
+            </div>
           </div>
           <button
             onClick={onLogout}
-            className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700 transition-colors text-sm"
+            className="px-4 py-2 bg-blue-500 hover:bg-blue-400 rounded-lg text-white transition-colors text-sm flex items-center gap-2"
           >
-            Sign Out
+            👋 Sign Out
           </button>
         </div>
       </div>
-
       {/* Three Panel Layout */}
       <div className="flex-1 flex overflow-hidden">
         {children}
@@ -32,7 +36,7 @@ export const ThreePanelLayout = ({ children, user, onLogout, waitlistCount }) =>
 };
 
 export const LeftPanel = ({ children }) => (
-  <div 
+  <div
     className="flex-shrink-0 h-full border-r border-gray-200"
     style={{ width: LAYOUT_CONFIG.waitlistWidth, minWidth: LAYOUT_CONFIG.minWaitlistWidth }}
   >
@@ -41,7 +45,7 @@ export const LeftPanel = ({ children }) => (
 );
 
 export const CenterPanel = ({ children }) => (
-  <div 
+  <div
     className="flex-1 h-full"
     style={{ minWidth: LAYOUT_CONFIG.floorplanMinWidth }}
   >
@@ -50,7 +54,7 @@ export const CenterPanel = ({ children }) => (
 );
 
 export const RightPanel = ({ children }) => (
-  <div 
+  <div
     className="flex-shrink-0 h-full border-l border-gray-200"
     style={{ width: LAYOUT_CONFIG.suggestionsWidth, minWidth: LAYOUT_CONFIG.minSuggestionsWidth }}
   >

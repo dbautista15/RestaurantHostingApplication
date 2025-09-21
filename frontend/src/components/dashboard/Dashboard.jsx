@@ -14,14 +14,14 @@ import { MOCK_TABLES } from '../../config/constants';
 export const Dashboard = ({ user, onLogout }) => {
   const { shiftData } = useShift();
   const floorPlanRef = useRef(null);
-  
-  const { 
-    waitlist, 
-    loading, 
-    error, 
-    addParty, 
-    updatePartyStatus, 
-    removeParty 
+
+  const {
+    waitlist,
+    loading,
+    error,
+    addParty,
+    updatePartyStatus,
+    removeParty
   } = useWaitlist();
 
   const activeWaiters = shiftData.serverOrder || [];
@@ -41,14 +41,14 @@ export const Dashboard = ({ user, onLogout }) => {
   // Socket.IO setup for device synchronization
   useEffect(() => {
     const socket = io('http://localhost:3001');
-    
+
     // Listen for table updates from other devices (like waiter iPad)
     socket.on('table_state_synced', (data) => {
       console.log('Received table sync from other device:', data);
       if (floorPlanRef.current) {
         floorPlanRef.current.updateTableState(
-          data.tableId, 
-          data.state, 
+          data.tableId,
+          data.state,
           data.partyInfo
         );
       }
@@ -64,12 +64,12 @@ export const Dashboard = ({ user, onLogout }) => {
   const getTableWaiter = (tableId) => {
     const waiterAssignments = {
       1: ['A13', 'A14', 'A15', 'A16'],
-      2: ['A12', 'A11', 'A10', 'A9'], 
+      2: ['A12', 'A11', 'A10', 'A9'],
       3: ['A1', 'A3', 'A4', 'A5'],
       4: ['A2', 'A6', 'A7', 'A8'],
       5: ['B1', 'B2', 'B3', 'B4', 'B5', 'B6']
     };
-    
+
     for (let waiterId = 1; waiterId <= 5; waiterId++) {
       if (waiterAssignments[waiterId]?.includes(tableId)) {
         return waiterId;
@@ -84,17 +84,17 @@ export const Dashboard = ({ user, onLogout }) => {
     if (!party) return;
 
     const availableTable = findSuitableTable(party.partySize);
-    
+
     if (availableTable && floorPlanRef.current) {
       const partyInfo = { name: party.partyName, size: party.partySize };
-      
+
       // CRITICAL: Mark this as waitlist seating to prevent duplicate matrix updates
       waitlistSeatingRef.current.add(availableTable.id);
-      
+
       // Update the floor plan table to "occupied"
       floorPlanRef.current.updateTableState(
-        availableTable.id, 
-        'occupied', 
+        availableTable.id,
+        'occupied',
         partyInfo
       );
 
@@ -138,8 +138,8 @@ export const Dashboard = ({ user, onLogout }) => {
       { id: 'A2', capacity: 2 },
       { id: 'A5', capacity: 2 }
     ];
-    
-    return suitableTables.find(table => 
+
+    return suitableTables.find(table =>
       table.capacity >= partySize && table.capacity <= partySize + 2
     );
   };
@@ -155,23 +155,31 @@ export const Dashboard = ({ user, onLogout }) => {
     }
   };
 
+  // Improve loading in Dashboard.jsx
   if (loading && waitlist.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-gray-600 text-lg">Loading SmartSeater...</p>
+          <p className="text-gray-500 text-sm">Connecting to restaurant data</p>
         </div>
       </div>
     );
   }
 
   return (
-    
+
     <ThreePanelLayout user={user} onLogout={onLogout} waitlistCount={waitlist.length}>
       {error && (
-        <div className="bg-red-50 border-l-4 border-red-400 text-red-700 px-4 py-3 mx-4 mt-4 rounded">
-          <p className="text-sm">{error}</p>
+        <div className="bg-red-50 border-l-4 border-red-400 text-red-700 px-4 py-3 mx-4 mt-4 rounded-r-lg">
+          <div className="flex items-center">
+            <span className="text-lg mr-2">⚠️</span>
+            <div>
+              <p className="font-medium">Connection Issue</p>
+              <p className="text-sm">Using offline mode - changes will sync when reconnected</p>
+            </div>
+          </div>
         </div>
       )}
 
