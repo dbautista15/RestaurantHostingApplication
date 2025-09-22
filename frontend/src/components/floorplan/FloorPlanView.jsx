@@ -385,7 +385,7 @@ export const FloorPlanView = React.forwardRef((props, ref) => {
     setPendingOccupiedTable(null);
   }, []);
 
-  // Table combining functionality
+// Table combining functionality - FIXED VERSION
   const combineSelectedTables = useCallback(() => {
     if (selectedTables.size < 2) return;
 
@@ -400,7 +400,8 @@ export const FloorPlanView = React.forwardRef((props, ref) => {
       const newMap = new Map(prev);
       newMap.set(combinedId, {
         id: combinedId,
-        tableIds: selectedTableIds,
+        // FIXED: Store complete table objects instead of just IDs
+        originalTables: selectedTableObjects, // This preserves ALL table data
         capacity: totalCapacity,
         x: firstTable.x,
         y: firstTable.y,
@@ -409,6 +410,7 @@ export const FloorPlanView = React.forwardRef((props, ref) => {
       return newMap;
     });
 
+    // This still removes tables from view (unchanged)
     setTables(prev => prev.filter(table => !selectedTableIds.includes(table.id)));
     setSelectedTables(new Set());
   }, [selectedTables, tables]);
@@ -417,17 +419,19 @@ export const FloorPlanView = React.forwardRef((props, ref) => {
     const combinedTable = combinedTables.get(combinedId);
     if (!combinedTable) return;
 
-    const originalTables = tables.filter(table => 
-      combinedTable.tableIds.includes(table.id)
-    );
+    // FIXED: Get original tables from stored data instead of trying to find them
+    const originalTables = combinedTable.originalTables || [];
 
+    // Restore the original tables to the tables array
     setTables(prev => [...prev, ...originalTables]);
+    
+    // Remove the combined table
     setCombinedTables(prev => {
       const newMap = new Map(prev);
       newMap.delete(combinedId);
       return newMap;
     });
-  }, [combinedTables, tables]);
+  }, [combinedTables]); // Removed 'tables' dependency since we don't need it anymore
 
   // Styling functions
   const getTableStateColor = useCallback((state, isActive) => {
@@ -639,7 +643,7 @@ export const FloorPlanView = React.forwardRef((props, ref) => {
               <div className="w-full h-full rounded flex flex-col items-center justify-center text-xs font-medium p-1">
                 <div className="font-bold">Combined</div>
                 <div className="text-[10px] opacity-75">Cap: {combined.capacity}</div>
-                <div className="text-[9px] opacity-60">{combined.tableIds.length} tables</div>
+                <div className="text-[9px] opacity-60">{combined.originalTables?.length || 0} tables</div>
               </div>
             </div>
           ))}
