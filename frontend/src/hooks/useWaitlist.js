@@ -31,8 +31,14 @@ export const useWaitlist = () => {
 
   const addParty = async (partyData) => {
     try {
-      await apiService.addToWaitlist(partyData);
-      loadWaitlist();
+      const response = await apiService.addToWaitlist(partyData);
+      // ✅ IMPROVED: Add the actual returned entry to state
+      if (response.success && response.waitlist) {
+        setWaitlist(prev => [...prev, response.waitlist]);
+      } else {
+        // Fallback: reload entire waitlist
+        loadWaitlist();
+      }
     } catch (error) {
       console.error('Failed to add party:', error);
       
@@ -43,6 +49,32 @@ export const useWaitlist = () => {
         createdAt: new Date()
       };
       setWaitlist(prev => [...prev, newEntry]);
+    }
+  };
+
+  // ✅ NEW: Update party function
+  const updateParty = async (entryId, updateData) => {
+    try {
+      const response = await apiService.updateWaitlistEntry(entryId, updateData);
+      
+      if (response.success && response.waitlist) {
+        // Update the specific entry in state
+        setWaitlist(prev => prev.map(entry => 
+          entry._id === entryId ? response.waitlist : entry
+        ));
+      } else {
+        // Fallback: reload entire waitlist
+        loadWaitlist();
+      }
+    } catch (error) {
+      console.error('Failed to update party:', error);
+      
+      // Optimistic update for better UX
+      setWaitlist(prev => prev.map(entry => 
+        entry._id === entryId ? { ...entry, ...updateData } : entry
+      ));
+      
+      throw error; // Re-throw so UI can handle the error
     }
   };
 
@@ -77,6 +109,7 @@ export const useWaitlist = () => {
     loading,
     error,
     addParty,
+    updateParty, // ✅ NEW: Export update function
     updatePartyStatus,
     removeParty,
     loadWaitlist

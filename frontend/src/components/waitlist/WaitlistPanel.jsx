@@ -1,4 +1,4 @@
-// src/components/waitlist/WaitlistPanel.jsx (Simplified)
+// src/components/waitlist/WaitlistPanel.jsx (Updated with special requests)
 import React, { useState } from 'react';
 import { WaitlistEntry } from './WaitlistEntry';
 import { AddPartyModal } from './AddPartyModal';
@@ -8,18 +8,49 @@ export const WaitlistPanel = ({
   waitlist, 
   onAddParty, 
   onStatusChange, 
-  onRemove
+  onRemove,
+  onUpdate // ✅ NEW: Add update prop
 }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const sortedWaitlist = sortWaitlistByPriority(waitlist);
 
-    const populateDemoData = () => {
+  const populateDemoData = () => {
     const demoParties = [
-      { name: 'Rodriguez Anniversary', size: 2, priority: 'normal', wait: 25 },
-      { name: 'Chen (Staff)', size: 4, priority: 'coworker', wait: 8 },
-      { name: 'Birthday - Thompson', size: 10, priority: 'large_party', wait: 35 },
-      { name: 'Wilson Date Night', size: 2, priority: 'normal', wait: 12 },
-      { name: 'Business Lunch - Park', size: 6, priority: 'normal', wait: 18 }
+      { 
+        name: 'Rodriguez Anniversary', 
+        size: 2, 
+        priority: 'normal', 
+        wait: 25,
+        specialRequests: 'Booth preferred - celebrating anniversary' // ✅ NEW
+      },
+      { 
+        name: 'Chen (Staff)', 
+        size: 4, 
+        priority: 'coworker', 
+        wait: 8,
+        specialRequests: '' // ✅ NEW
+      },
+      { 
+        name: 'Birthday - Thompson', 
+        size: 10, 
+        priority: 'large_party', 
+        wait: 35,
+        specialRequests: 'Birthday celebration - need space for gifts' // ✅ NEW
+      },
+      { 
+        name: 'Wilson Date Night', 
+        size: 2, 
+        priority: 'normal', 
+        wait: 12,
+        specialRequests: 'Quiet table please' // ✅ NEW
+      },
+      { 
+        name: 'Business Lunch - Park', 
+        size: 6, 
+        priority: 'normal', 
+        wait: 18,
+        specialRequests: 'Need table near outlets for laptops' // ✅ NEW
+      }
     ];
     
     demoParties.forEach((party, i) => {
@@ -29,7 +60,8 @@ export const WaitlistPanel = ({
         priority: party.priority,
         phoneNumber: 7049394520,
         partyStatus: 'waiting',
-        estimatedWait: party.wait
+        estimatedWait: party.wait,
+        specialRequests: party.specialRequests // ✅ NEW: Include in demo data
       }), i * 500); // Stagger the additions for visual effect
     });
   };
@@ -45,12 +77,12 @@ export const WaitlistPanel = ({
           </span>
         </div>
         
-        {/* ADD THE DEMO BUTTON HERE: */}
+        {/* Demo Button */}
         <button
           onClick={populateDemoData}
           className="w-full bg-gray-500 text-white py-1 px-3 rounded text-sm mb-2 hover:bg-gray-600 transition-colors"
         >
-          🎭 Load Demo Data
+          🎭 Load Demo Data (with Special Requests)
         </button>
         
         <button
@@ -67,6 +99,9 @@ export const WaitlistPanel = ({
           <div className="text-center py-8 text-gray-500">
             <div className="text-4xl mb-2">📋</div>
             <p className="text-sm">No parties waiting</p>
+            <p className="text-xs text-gray-400 mt-1">
+              Add a party or load demo data to get started
+            </p>
           </div>
         ) : (
           sortedWaitlist.map(entry => (
@@ -75,6 +110,7 @@ export const WaitlistPanel = ({
               entry={entry}
               onStatusChange={onStatusChange}
               onRemove={onRemove}
+              onUpdate={onUpdate} // ✅ NEW: Pass update function
             />
           ))
         )}
@@ -82,7 +118,7 @@ export const WaitlistPanel = ({
 
       {/* Quick Stats */}
       <div className="p-4 bg-white border-t border-gray-200">
-        <div className="grid grid-cols-2 gap-4 text-center">
+        <div className="grid grid-cols-3 gap-4 text-center">
           <div>
             <div className="text-lg font-bold text-green-600">
               {sortedWaitlist.filter(p => p.priority === 'coworker').length}
@@ -94,6 +130,13 @@ export const WaitlistPanel = ({
               {sortedWaitlist.filter(p => p.priority === 'large_party').length}
             </div>
             <div className="text-xs text-gray-600">Large</div>
+          </div>
+          {/* ✅ NEW: Show count of parties with special requests */}
+          <div>
+            <div className="text-lg font-bold text-purple-600">
+              {sortedWaitlist.filter(p => p.specialRequests && p.specialRequests.trim()).length}
+            </div>
+            <div className="text-xs text-gray-600">Special</div>
           </div>
         </div>
       </div>

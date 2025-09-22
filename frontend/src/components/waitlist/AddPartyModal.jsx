@@ -1,11 +1,12 @@
- import React, { useState } from 'react';
+import React, { useState } from 'react';
 
 export const AddPartyModal = ({ isOpen, onClose, onAdd }) => {
   const [formData, setFormData] = useState({
     partyName: '',
     partySize: '',
     phoneNumber: '',
-    priority: 'normal'
+    priority: 'normal',
+    specialRequests: '' // ✅ NEW: Add special requests field
   });
   const [loading, setLoading] = useState(false);
 
@@ -21,7 +22,13 @@ export const AddPartyModal = ({ isOpen, onClose, onAdd }) => {
         estimatedWait: 15,
         partyStatus: 'waiting'
       });
-      setFormData({ partyName: '', partySize: '', phoneNumber: '', priority: 'normal' });
+      setFormData({ 
+        partyName: '', 
+        partySize: '', 
+        phoneNumber: '', 
+        priority: 'normal',
+        specialRequests: '' // ✅ NEW: Reset special requests
+      });
       onClose();
     } catch (error) {
       console.error('Failed to add party:', error);
@@ -34,7 +41,7 @@ export const AddPartyModal = ({ isOpen, onClose, onAdd }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg w-full max-w-md mx-4">
+      <div className="bg-white p-6 rounded-lg w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
         <h2 className="text-xl font-bold mb-4">Add Party to Waitlist</h2>
         
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -79,6 +86,24 @@ export const AddPartyModal = ({ isOpen, onClose, onAdd }) => {
               className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
               placeholder="Phone number (optional)"
             />
+          </div>
+
+          {/* ✅ NEW: Special Requests Field */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Special Requests
+            </label>
+            <textarea
+              value={formData.specialRequests}
+              onChange={(e) => setFormData({...formData, specialRequests: e.target.value})}
+              className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 resize-none"
+              placeholder="Booth preferred, high chair needed, anniversary..."
+              rows="3"
+              maxLength="200"
+            />
+            <div className="text-xs text-gray-500 mt-1">
+              {formData.specialRequests.length}/200 characters
+            </div>
           </div>
 
           <div>

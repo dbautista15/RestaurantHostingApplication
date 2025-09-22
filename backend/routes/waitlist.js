@@ -2,7 +2,7 @@
 const express = require('express');
 const WaitlistEntry = require('../models/WaitlistEntry');
 const { authenticateToken, requireRole } = require('../middleware/auth');
-const { validateLogin, validateTableStateUpdate } = require('../middleware/validation');
+const { validateWaitlistEntry } = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -37,7 +37,7 @@ router.post('/', authenticateToken, requireRole(['host']), async (req, res) => {
     // TODO: Calculate estimated wait time
     // TODO: Broadcast update to connected clients
     // YOUR CODE HERE:
-    const {partyName,partySize,phoneNumber,estimatedWait,priority,partyStatus} = req.body;
+    const {partyName,partySize,phoneNumber,estimatedWait,priority,partyStatus,specialRequests} = req.body;
     //validation
     if(!partyName || !partySize || !phoneNumber || !estimatedWait || !priority || !partyStatus){
       return res.status(400).json({
@@ -59,24 +59,99 @@ router.post('/', authenticateToken, requireRole(['host']), async (req, res) => {
       phoneNumber,
       estimatedWait,
       priority,
-      partyStatus
+      partyStatus,
+      specialRequests: specialRequests || '', // ✅ NEW: Include special requests
+      addedBy: req.user._id // ✅ FIXED: Set addedBy from authenticated user
     });
     await newWaitlistEntry.save();
     res.status(201).json({
       success:true,
       message:'Waitlist entry was created successfully',
       waitlist:{
+        _id: newWaitlistEntry._id, // ✅ NEW: Include _id for frontend
         partyName:newWaitlistEntry.partyName,
         partySize:newWaitlistEntry.partySize,
         phoneNumber:newWaitlistEntry.phoneNumber,
         estimatedWait:newWaitlistEntry.estimatedWait,
         priority:newWaitlistEntry.priority,
-        partyStatus:newWaitlistEntry.partyStatus
+        partyStatus:newWaitlistEntry.partyStatus,
+        specialRequests:newWaitlistEntry.specialRequests, // ✅ NEW
+        createdAt: newWaitlistEntry.createdAt // ✅ NEW: Include timestamp
       }
     });
   } catch (error) {
     console.error('Waitlist creation error:', error)
     res.status(500).json({ error: error.message });
+  }
+});
+
+// ✅ NEW: PATCH /waitlist/:id - Update waitlist entry
+router.patch('/:id', authenticateToken, requireRole(['host']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { partyName, partySize, phoneNumber, specialRequests, priority } = req.body;
+    
+    // Find the waitlist entry
+    const waitlistEntry = await WaitlistEntry.findById(id);
+    if (!waitlistEntry) {
+      return res.status(404).json({
+        error: 'Waitlist entry not found'
+      });
+    }
+    
+    // Only allow updating if still waiting
+    if (waitlistEntry.partyStatus !== 'waiting') {
+      return res.status(400).json({
+        error: 'Cannot update a party that is no longer waiting'
+      });
+    }
+    
+    // Update only provided fields
+    const updateFields = {};
+    if (partyName !== undefined) updateFields.partyName = partyName;
+    if (partySize !== undefined) updateFields.partySize = partySize;
+    if (phoneNumber !== undefined) updateFields.phoneNumber = phoneNumber;
+    if (specialRequests !== undefined) updateFields.specialRequests = specialRequests;
+    if (priority !== undefined) updateFields.priority = priority;
+    
+    // Update the entry
+    const updatedEntry = await WaitlistEntry.findByIdAndUpdate(
+      id,
+      updateFields,
+      { new: true, runValidators: true }
+    );
+    
+    res.status(200).json({
+      success: true,
+      message: 'Waitlist entry updated successfully',
+      waitlist: {
+        _id: updatedEntry._id,
+        partyName: updatedEntry.partyName,
+        partySize: updatedEntry.partySize,
+        phoneNumber: updatedEntry.phoneNumber,
+        estimatedWait: updatedEntry.estimatedWait,
+        priority: updatedEntry.priority,
+        partyStatus: updatedEntry.partyStatus,
+        specialRequests: updatedEntry.specialRequests,
+        createdAt: updatedEntry.createdAt
+      }
+    });
+    
+  } catch (error) {
+    console.error('Waitlist update error:', error);
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(e => e.message);
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: errors
+      });
+    }
+    
+    res.status(500).json({
+      error: 'Failed to update waitlist entry'
+    });
   }
 });
 

@@ -1,5 +1,5 @@
 // frontend/src/components/dashboard/Dashboard.jsx
-import React, { useRef, useEffect,useMemo } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import { useWaitlist } from '../../hooks/useWaitlist';
 import { useMatrixSeating } from '../../hooks/useMatrixSeating';
 import { useShift } from '../../context/ShiftContext';
@@ -20,6 +20,7 @@ export const Dashboard = ({ user, onLogout }) => {
     loading,
     error,
     addParty,
+    updateParty, // ✅ NEW: Get update function from hook
     updatePartyStatus,
     removeParty
   } = useWaitlist();
@@ -154,23 +155,24 @@ export const Dashboard = ({ user, onLogout }) => {
       console.log('Skipping matrix update - this is from waitlist seating');
     }
   };
+
   // ADD THE BUSINESS METRICS COMPONENT HERE:
   const businessMetrics = useMemo(() => {
-  const totalTablesServed = matrix.flat().reduce((a, b) => a + b, 0);
-  const fairnessScore = (() => {
-    const totals = activeWaiters.map((_, index) => 
-      matrix[index]?.reduce((a, b) => a + b, 0) || 0
-    );
-    const avg = totals.reduce((a, b) => a + b, 0) / totals.length;
-    const variance = totals.reduce((sum, total) => sum + Math.pow(total - avg, 2), 0) / totals.length;
-    return Math.max(0, 100 - Math.round(variance * 10));
-  })();
-  
-  const avgWaitTime = waitlist.length > 0 ? 
-    Math.round(waitlist.reduce((sum, p) => sum + ((Date.now() - new Date(p.createdAt)) / (1000 * 60)), 0) / waitlist.length) : 0;
+    const totalTablesServed = matrix.flat().reduce((a, b) => a + b, 0);
+    const fairnessScore = (() => {
+      const totals = activeWaiters.map((_, index) => 
+        matrix[index]?.reduce((a, b) => a + b, 0) || 0
+      );
+      const avg = totals.reduce((a, b) => a + b, 0) / totals.length;
+      const variance = totals.reduce((sum, total) => sum + Math.pow(total - avg, 2), 0) / totals.length;
+      return Math.max(0, 100 - Math.round(variance * 10));
+    })();
+    
+    const avgWaitTime = waitlist.length > 0 ? 
+      Math.round(waitlist.reduce((sum, p) => sum + ((Date.now() - new Date(p.createdAt)) / (1000 * 60)), 0) / waitlist.length) : 0;
 
-  return { totalTablesServed, fairnessScore, avgWaitTime };
-}, [matrix, activeWaiters, waitlist]);
+    return { totalTablesServed, fairnessScore, avgWaitTime };
+  }, [matrix, activeWaiters, waitlist]);
   
   // Improve loading in Dashboard.jsx
   if (loading && waitlist.length === 0) {
@@ -186,7 +188,6 @@ export const Dashboard = ({ user, onLogout }) => {
   }
 
   return (
-
     <ThreePanelLayout user={user} onLogout={onLogout} waitlistCount={waitlist.length} businessMetrics={businessMetrics}>
       {error && (
         <div className="bg-red-50 border-l-4 border-red-400 text-red-700 px-4 py-3 mx-4 mt-4 rounded-r-lg">
@@ -200,13 +201,13 @@ export const Dashboard = ({ user, onLogout }) => {
         </div>
       )}
 
-
       <LeftPanel>
         <WaitlistPanel
           waitlist={waitlist}
           onAddParty={addParty}
           onStatusChange={handleSeatParty}
           onRemove={removeParty}
+          onUpdate={updateParty} // ✅ NEW: Pass update function
         />
       </LeftPanel>
 

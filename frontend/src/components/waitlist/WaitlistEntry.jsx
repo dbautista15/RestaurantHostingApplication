@@ -1,7 +1,153 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { getPriorityColor, getPriorityLabel, getWaitTime } from '../../utils/waitlistHelpers';
 
-export const WaitlistEntry = ({ entry, onStatusChange, onRemove }) => {
+export const WaitlistEntry = ({ entry, onStatusChange, onRemove, onUpdate }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({
+    partyName: entry.partyName,
+    partySize: entry.partySize,
+    phoneNumber: entry.phoneNumber,
+    specialRequests: entry.specialRequests || '',
+    priority: entry.priority
+  });
+  const [loading, setLoading] = useState(false);
+
+  const handleEdit = () => {
+    setEditData({
+      partyName: entry.partyName,
+      partySize: entry.partySize,
+      phoneNumber: entry.phoneNumber,
+      specialRequests: entry.specialRequests || '',
+      priority: entry.priority
+    });
+    setIsEditing(true);
+  };
+
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      if (onUpdate) {
+        await onUpdate(entry._id, editData);
+      }
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to update party:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setEditData({
+      partyName: entry.partyName,
+      partySize: entry.partySize,
+      phoneNumber: entry.phoneNumber,
+      specialRequests: entry.specialRequests || '',
+      priority: entry.priority
+    });
+  };
+
+  if (isEditing) {
+    return (
+      <div className="bg-white p-3 rounded-lg border-2 border-blue-200">
+        <div className="space-y-3">
+          {/* Party Name */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Party Name
+            </label>
+            <input
+              type="text"
+              value={editData.partyName}
+              onChange={(e) => setEditData({...editData, partyName: e.target.value})}
+              className="w-full p-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Party Size */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Party Size
+            </label>
+            <input
+              type="number"
+              value={editData.partySize}
+              onChange={(e) => setEditData({...editData, partySize: parseInt(e.target.value) || 1})}
+              className="w-full p-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
+              min="1"
+              max="20"
+            />
+          </div>
+
+          {/* Phone Number */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Phone Number
+            </label>
+            <input
+              type="tel"
+              value={editData.phoneNumber}
+              onChange={(e) => setEditData({...editData, phoneNumber: e.target.value})}
+              className="w-full p-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Special Requests */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Special Requests
+            </label>
+            <textarea
+              value={editData.specialRequests}
+              onChange={(e) => setEditData({...editData, specialRequests: e.target.value})}
+              className="w-full p-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 resize-none"
+              rows="2"
+              maxLength="200"
+              placeholder="Booth preferred, high chair needed..."
+            />
+            <div className="text-xs text-gray-500 mt-1">
+              {editData.specialRequests.length}/200 characters
+            </div>
+          </div>
+
+          {/* Priority */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Priority
+            </label>
+            <select
+              value={editData.priority}
+              onChange={(e) => setEditData({...editData, priority: e.target.value})}
+              className="w-full p-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="normal">Normal Priority</option>
+              <option value="large_party">Large Party (8+)</option>
+              <option value="coworker">Staff/Coworker</option>
+            </select>
+          </div>
+
+          {/* Edit Actions */}
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={handleCancel}
+              className="flex-1 px-3 py-2 bg-gray-200 text-gray-700 rounded text-xs font-medium hover:bg-gray-300 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={loading || !editData.partyName || !editData.partySize}
+              className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {loading ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white p-3 rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
       <div className="flex justify-between items-start mb-3">
@@ -18,6 +164,14 @@ export const WaitlistEntry = ({ entry, onStatusChange, onRemove }) => {
           {entry.phoneNumber && (
             <p className="text-xs text-gray-500 mt-1">{entry.phoneNumber}</p>
           )}
+          
+          {/* ✅ NEW: Display Special Requests */}
+          {entry.specialRequests && (
+            <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+              <div className="text-xs font-medium text-yellow-800 mb-1">Special Requests:</div>
+              <div className="text-xs text-yellow-700">{entry.specialRequests}</div>
+            </div>
+          )}
         </div>
       </div>
       
@@ -28,6 +182,16 @@ export const WaitlistEntry = ({ entry, onStatusChange, onRemove }) => {
         >
           Seat Party
         </button>
+        
+        {/* ✅ NEW: Edit Button */}
+        <button
+          onClick={handleEdit}
+          className="px-3 py-2 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 transition-colors"
+          title="Edit party details"
+        >
+          ✏️
+        </button>
+        
         <button
           onClick={() => onRemove(entry._id)}
           className="px-3 py-2 bg-gray-200 text-gray-700 rounded text-xs font-medium hover:bg-gray-300 transition-colors"

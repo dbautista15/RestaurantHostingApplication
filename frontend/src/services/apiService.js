@@ -33,6 +33,14 @@ export const apiService = {
     });
   },
 
+  // ✅ NEW: Update waitlist entry
+  async updateWaitlistEntry(id, updateData) {
+    return this.request(`/waitlist/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updateData)
+    });
+  },
+
   async updateWaitlistStatus(id, partyStatus) {
     return this.request(`/waitlist/${id}/partyStatus`, {
       method: 'PUT',
