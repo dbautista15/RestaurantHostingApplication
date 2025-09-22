@@ -13,6 +13,27 @@ export const WaitlistPanel = ({
   const [showAddModal, setShowAddModal] = useState(false);
   const sortedWaitlist = sortWaitlistByPriority(waitlist);
 
+    const populateDemoData = () => {
+    const demoParties = [
+      { name: 'Rodriguez Anniversary', size: 2, priority: 'normal', wait: 25 },
+      { name: 'Chen (Staff)', size: 4, priority: 'coworker', wait: 8 },
+      { name: 'Birthday - Thompson', size: 10, priority: 'large_party', wait: 35 },
+      { name: 'Wilson Date Night', size: 2, priority: 'normal', wait: 12 },
+      { name: 'Business Lunch - Park', size: 6, priority: 'normal', wait: 18 }
+    ];
+    
+    demoParties.forEach((party, i) => {
+      setTimeout(() => onAddParty({
+        partyName: party.name,
+        partySize: party.size,
+        priority: party.priority,
+        phoneNumber: 7049394520,
+        partyStatus: 'waiting',
+        estimatedWait: party.wait
+      }), i * 500); // Stagger the additions for visual effect
+    });
+  };
+
   return (
     <div className="h-full bg-gray-50 flex flex-col">
       {/* Waitlist Header */}
@@ -23,6 +44,15 @@ export const WaitlistPanel = ({
             {waitlist.length} waiting
           </span>
         </div>
+        
+        {/* ADD THE DEMO BUTTON HERE: */}
+        <button
+          onClick={populateDemoData}
+          className="w-full bg-gray-500 text-white py-1 px-3 rounded text-sm mb-2 hover:bg-gray-600 transition-colors"
+        >
+          🎭 Load Demo Data
+        </button>
+        
         <button
           onClick={() => setShowAddModal(true)}
           className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"

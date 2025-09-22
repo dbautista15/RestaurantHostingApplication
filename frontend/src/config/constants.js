@@ -18,8 +18,8 @@ export const LAYOUT_CONFIG = {
   waitlistWidth: '350px',
   floorplanMinWidth: '600px',
   minWaitlistWidth: '250px',
-  minSuggestionsWidth: '300px',
-  suggestionsWidth: '320px' // Added missing property used in ThreePanelLayout
+  minSuggestionsWidth: '380px',
+  suggestionsWidth: '450px' // Added missing property used in ThreePanelLayout
 };
 
 // Visual Theme Configuration

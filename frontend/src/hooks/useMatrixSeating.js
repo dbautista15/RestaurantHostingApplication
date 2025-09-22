@@ -140,56 +140,76 @@ export const useMatrixSeating = (waiters, tables, waitlist) => {
 	}, [matrixService]);
 
 	// Generate smart suggestions - FIXED DEPENDENCIES
-	const generateSuggestions = useCallback(() => {
-		const newSuggestions = [];
+// In useMatrixSeating.js, in the generateSuggestions function:
+const generateSuggestions = useCallback(() => {
+  const newSuggestions = [];
 
-		// Sort waitlist by priority and wait time
-		const sortedWaitlist = [...waitlist].sort((a, b) => {
-			const priorityOrder = { coworker: 3, large_party: 2, normal: 1 };
-			const aPriority = priorityOrder[a.priority] || 1;
-			const bPriority = priorityOrder[b.priority] || 1;
+  // Sort waitlist by priority and wait time
+  const sortedWaitlist = [...waitlist].sort((a, b) => {
+    const priorityOrder = { coworker: 3, large_party: 2, normal: 1 };
+    const aPriority = priorityOrder[a.priority] || 1;
+    const bPriority = priorityOrder[b.priority] || 1;
 
-			if (aPriority !== bPriority) {
-				return bPriority - aPriority;
-			}
+    if (aPriority !== bPriority) {
+      return bPriority - aPriority;
+    }
 
-			return new Date(a.createdAt) - new Date(b.createdAt);
-		});
+    return new Date(a.createdAt) - new Date(b.createdAt);
+  });
 
-		// Generate suggestions for each party
-		for (let party of sortedWaitlist.slice(0, 5)) { // Limit to top 5
-			if (isPendingAssignment(null, party._id)) continue;
+  // Generate suggestions for each party
+  for (let party of sortedWaitlist.slice(0, 5)) {
+    if (isPendingAssignment(null, party._id)) continue;
 
-			const availableWaiters = getWaitersWithAvailableTables(party.partySize);
-			const bestWaiter = findBestWaiterWithFIFO(party, availableWaiters);
+    try {
+      const availableWaiters = getWaitersWithAvailableTables(party.partySize);
+      
+      // ADD THIS CHECK:
+      if (!availableWaiters || availableWaiters.length === 0) {
+        console.log(`No available waiters for party ${party.partyName} (size ${party.partySize})`);
+        continue;
+      }
 
-			if (bestWaiter) {
-				const bestTable = getBestTableForWaiterAndParty(bestWaiter, party.partySize);
+      const bestWaiter = findBestWaiterWithFIFO(party, availableWaiters);
+      
+      // ADD THIS CHECK:
+      if (!bestWaiter) {
+        console.log(`No suitable waiter found for party ${party.partyName}`);
+        continue;
+      }
 
-				if (bestTable) {
-					newSuggestions.push({
-						id: `suggestion-${party._id}-${bestTable.id}`,
-						party,
-						table: bestTable,
-						waiter: bestWaiter,
-						confidence: calculateConfidence(party, bestTable, bestWaiter),
-						reason: generateReason(party, bestTable, bestWaiter)
-					});
-				}
-			}
-		}
+      const bestTable = getBestTableForWaiterAndParty(bestWaiter, party.partySize);
 
-		setSuggestions(newSuggestions);
-	}, [
-		waitlist,
-		isPendingAssignment,
-		getWaitersWithAvailableTables,
-		matrixService,
-		getBestTableForWaiterAndParty,
-		calculateConfidence,
-		generateReason
-	]);
+      // ADD THIS CHECK:
+      if (!bestTable) {
+        console.log(`No suitable table found for party ${party.partyName}`);
+        continue;
+      }
 
+      newSuggestions.push({
+        id: `suggestion-${party._id}-${bestTable.id}`,
+        party,
+        table: bestTable,
+        waiter: bestWaiter,
+        confidence: calculateConfidence(party, bestTable, bestWaiter),
+        reason: generateReason(party, bestTable, bestWaiter)
+      });
+    } catch (error) {
+      console.error(`Error generating suggestion for party ${party.partyName}:`, error);
+      // Continue to next party instead of crashing
+    }
+  }
+
+  setSuggestions(newSuggestions);
+}, [
+  waitlist,
+  isPendingAssignment,
+  getWaitersWithAvailableTables,
+  findBestWaiterWithFIFO,
+  getBestTableForWaiterAndParty,
+  calculateConfidence,
+  generateReason
+]);
 	// Assign party to table - FIXED DEPENDENCIES
 	const assignPartyToTable = useCallback((partyId, tableId) => {
 		const party = waitlist.find(p => p._id === partyId);

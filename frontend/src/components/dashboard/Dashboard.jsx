@@ -1,5 +1,5 @@
 // frontend/src/components/dashboard/Dashboard.jsx
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect,useMemo } from 'react';
 import { useWaitlist } from '../../hooks/useWaitlist';
 import { useMatrixSeating } from '../../hooks/useMatrixSeating';
 import { useShift } from '../../context/ShiftContext';
@@ -107,12 +107,12 @@ export const Dashboard = ({ user, onLogout }) => {
           updateMatrix(waiterIndex, party.partySize);
         }
       }
-
+      
       // Clean up tracking after a delay
       setTimeout(() => {
         waitlistSeatingRef.current.delete(availableTable.id);
       }, 1000);
-
+      
       // Broadcast to other devices (waiter iPad)
       const socket = io('http://localhost:3001');
       socket.emit('sync_table_state', {
@@ -123,11 +123,11 @@ export const Dashboard = ({ user, onLogout }) => {
       });
       socket.disconnect(); // Clean up temporary connection
     }
-
+    
     // Update the waitlist (remove the party)
     await updatePartyStatus(partyId, status);
   };
-
+  
   const findSuitableTable = (partySize) => {
     const suitableTables = [
       { id: 'A16', capacity: 4 },
@@ -138,12 +138,12 @@ export const Dashboard = ({ user, onLogout }) => {
       { id: 'A2', capacity: 2 },
       { id: 'A5', capacity: 2 }
     ];
-
+    
     return suitableTables.find(table =>
       table.capacity >= partySize && table.capacity <= partySize + 2
     );
   };
-
+  
   // FIXED: Pass tracking info to prevent duplicate matrix updates
   const handleManualTableSeating = (waiterIndex, partySize, tableId) => {
     // Only update matrix if this is NOT from waitlist seating
@@ -154,7 +154,24 @@ export const Dashboard = ({ user, onLogout }) => {
       console.log('Skipping matrix update - this is from waitlist seating');
     }
   };
+  // ADD THE BUSINESS METRICS COMPONENT HERE:
+  const businessMetrics = useMemo(() => {
+  const totalTablesServed = matrix.flat().reduce((a, b) => a + b, 0);
+  const fairnessScore = (() => {
+    const totals = activeWaiters.map((_, index) => 
+      matrix[index]?.reduce((a, b) => a + b, 0) || 0
+    );
+    const avg = totals.reduce((a, b) => a + b, 0) / totals.length;
+    const variance = totals.reduce((sum, total) => sum + Math.pow(total - avg, 2), 0) / totals.length;
+    return Math.max(0, 100 - Math.round(variance * 10));
+  })();
+  
+  const avgWaitTime = waitlist.length > 0 ? 
+    Math.round(waitlist.reduce((sum, p) => sum + ((Date.now() - new Date(p.createdAt)) / (1000 * 60)), 0) / waitlist.length) : 0;
 
+  return { totalTablesServed, fairnessScore, avgWaitTime };
+}, [matrix, activeWaiters, waitlist]);
+  
   // Improve loading in Dashboard.jsx
   if (loading && waitlist.length === 0) {
     return (
@@ -170,7 +187,7 @@ export const Dashboard = ({ user, onLogout }) => {
 
   return (
 
-    <ThreePanelLayout user={user} onLogout={onLogout} waitlistCount={waitlist.length}>
+    <ThreePanelLayout user={user} onLogout={onLogout} waitlistCount={waitlist.length} businessMetrics={businessMetrics}>
       {error && (
         <div className="bg-red-50 border-l-4 border-red-400 text-red-700 px-4 py-3 mx-4 mt-4 rounded-r-lg">
           <div className="flex items-center">
@@ -182,6 +199,7 @@ export const Dashboard = ({ user, onLogout }) => {
           </div>
         </div>
       )}
+
 
       <LeftPanel>
         <WaitlistPanel
