@@ -1,4 +1,4 @@
-// src/components/waitlist/WaitlistPanel.jsx (Updated with special requests)
+// src/components/waitlist/WaitlistPanel.jsx (Enhanced with Recently Seated)
 import React, { useState } from 'react';
 import { WaitlistEntry } from './WaitlistEntry';
 import { AddPartyModal } from './AddPartyModal';
@@ -9,10 +9,35 @@ export const WaitlistPanel = ({
   onAddParty, 
   onStatusChange, 
   onRemove,
-  onUpdate // ✅ NEW: Add update prop
+  onUpdate,
+  // ✅ NEW: Recently seated props
+  recentlySeated = [],
+  onRestoreParty,
+  onClearRecentlySeated
 }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const sortedWaitlist = sortWaitlistByPriority(waitlist);
+
+  // ✅ NEW: Helper to format time since seated
+  const getTimeSinceSeated = (seatedAt) => {
+    const minutes = Math.floor((Date.now() - new Date(seatedAt)) / (1000 * 60));
+    if (minutes < 1) return 'just now';
+    if (minutes === 1) return '1 min ago';
+    return `${minutes} min ago`;
+  };
+
+  // ✅ NEW: Handle restore with user feedback
+  const handleRestore = async (partyId) => {
+    try {
+      const result = await onRestoreParty(partyId);
+      if (result && !result.success) {
+        // Could add toast notification here in the future
+        console.warn('Restore warning:', result.message);
+      }
+    } catch (error) {
+      console.error('Failed to restore party:', error);
+    }
+  };
 
   const populateDemoData = () => {
     const demoParties = [
@@ -21,35 +46,35 @@ export const WaitlistPanel = ({
         size: 2, 
         priority: 'normal', 
         wait: 25,
-        specialRequests: 'Booth preferred - celebrating anniversary' // ✅ NEW
+        specialRequests: 'Booth preferred - celebrating anniversary'
       },
       { 
         name: 'Chen (Staff)', 
         size: 4, 
         priority: 'coworker', 
         wait: 8,
-        specialRequests: '' // ✅ NEW
+        specialRequests: ''
       },
       { 
         name: 'Birthday - Thompson', 
         size: 10, 
         priority: 'large_party', 
         wait: 35,
-        specialRequests: 'Birthday celebration - need space for gifts' // ✅ NEW
+        specialRequests: 'Birthday celebration - need space for gifts'
       },
       { 
         name: 'Wilson Date Night', 
         size: 2, 
         priority: 'normal', 
         wait: 12,
-        specialRequests: 'Quiet table please' // ✅ NEW
+        specialRequests: 'Quiet table please'
       },
       { 
         name: 'Business Lunch - Park', 
         size: 6, 
         priority: 'normal', 
         wait: 18,
-        specialRequests: 'Need table near outlets for laptops' // ✅ NEW
+        specialRequests: 'Need table near outlets for laptops'
       }
     ];
     
@@ -61,8 +86,8 @@ export const WaitlistPanel = ({
         phoneNumber: 7049394520,
         partyStatus: 'waiting',
         estimatedWait: party.wait,
-        specialRequests: party.specialRequests // ✅ NEW: Include in demo data
-      }), i * 500); // Stagger the additions for visual effect
+        specialRequests: party.specialRequests
+      }), i * 500);
     });
   };
 
@@ -94,31 +119,105 @@ export const WaitlistPanel = ({
       </div>
 
       {/* Waitlist Entries */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {sortedWaitlist.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <div className="text-4xl mb-2">📋</div>
-            <p className="text-sm">No parties waiting</p>
-            <p className="text-xs text-gray-400 mt-1">
-              Add a party or load demo data to get started
-            </p>
+      <div className="flex-1 overflow-y-auto">
+        {/* Active Waitlist */}
+        <div className="p-4 space-y-3">
+          {sortedWaitlist.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <div className="text-4xl mb-2">📋</div>
+              <p className="text-sm">No parties waiting</p>
+              <p className="text-xs text-gray-400 mt-1">
+                Add a party or load demo data to get started
+              </p>
+            </div>
+          ) : (
+            sortedWaitlist.map(entry => (
+              <WaitlistEntry
+                key={entry._id}
+                entry={entry}
+                onStatusChange={onStatusChange}
+                onRemove={onRemove}
+                onUpdate={onUpdate}
+              />
+            ))
+          )}
+        </div>
+
+        {/* ✅ NEW: Recently Seated Section */}
+        {recentlySeated.length > 0 && (
+          <div className="border-t border-gray-300 bg-gray-100">
+            <div className="p-4 pb-2">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-sm font-semibold text-gray-700">Recently Seated</h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500">
+                    {recentlySeated.length} parties
+                  </span>
+                  {recentlySeated.length > 5 && (
+                    <button
+                      onClick={onClearRecentlySeated}
+                      className="text-xs text-gray-500 hover:text-gray-700 underline"
+                      title="Clear recently seated history"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {recentlySeated.slice(0, 10).map(party => (
+                  <div 
+                    key={party._id} 
+                    className="bg-white p-3 rounded border border-gray-200 shadow-sm"
+                  >
+                    <div className="flex justify-between items-center">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium text-sm text-gray-900">
+                            {party.partyName}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            party of {party.partySize}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <span>✅ Seated {getTimeSinceSeated(party.seatedAt)}</span>
+                          {party.specialRequests && (
+                            <span className="text-yellow-600" title={party.specialRequests}>
+                              ⭐
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <button
+                        onClick={() => handleRestore(party._id)}
+                        className="px-3 py-1 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 transition-colors"
+                        title="Put back on waitlist"
+                      >
+                        Undo
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {recentlySeated.length > 10 && (
+                <div className="text-center mt-2">
+                  <span className="text-xs text-gray-500">
+                    +{recentlySeated.length - 10} more parties seated
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
-        ) : (
-          sortedWaitlist.map(entry => (
-            <WaitlistEntry
-              key={entry._id}
-              entry={entry}
-              onStatusChange={onStatusChange}
-              onRemove={onRemove}
-              onUpdate={onUpdate} // ✅ NEW: Pass update function
-            />
-          ))
         )}
       </div>
 
       {/* Quick Stats */}
       <div className="p-4 bg-white border-t border-gray-200">
-        <div className="grid grid-cols-3 gap-4 text-center">
+        <div className="grid grid-cols-4 gap-4 text-center">
           <div>
             <div className="text-lg font-bold text-green-600">
               {sortedWaitlist.filter(p => p.priority === 'coworker').length}
@@ -131,12 +230,18 @@ export const WaitlistPanel = ({
             </div>
             <div className="text-xs text-gray-600">Large</div>
           </div>
-          {/* ✅ NEW: Show count of parties with special requests */}
           <div>
             <div className="text-lg font-bold text-purple-600">
               {sortedWaitlist.filter(p => p.specialRequests && p.specialRequests.trim()).length}
             </div>
             <div className="text-xs text-gray-600">Special</div>
+          </div>
+          {/* ✅ NEW: Recently seated count */}
+          <div>
+            <div className="text-lg font-bold text-gray-600">
+              {recentlySeated.length}
+            </div>
+            <div className="text-xs text-gray-600">Seated</div>
           </div>
         </div>
       </div>

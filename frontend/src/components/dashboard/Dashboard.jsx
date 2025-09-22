@@ -20,9 +20,13 @@ export const Dashboard = ({ user, onLogout }) => {
     loading,
     error,
     addParty,
-    updateParty, // ✅ NEW: Get update function from hook
+    updateParty,
     updatePartyStatus,
-    removeParty
+    removeParty,
+    // ✅ NEW: Recently seated functionality
+    recentlySeated,
+    restoreParty,
+    clearRecentlySeated
   } = useWaitlist();
 
   const activeWaiters = shiftData.serverOrder || [];
@@ -33,7 +37,7 @@ export const Dashboard = ({ user, onLogout }) => {
     pendingAssignments,
     confirmSeating,
     cancelAssignment,
-    updateMatrix  // NEW: Get the proper matrix update function
+    updateMatrix
   } = useMatrixSeating(activeWaiters, MOCK_TABLES, waitlist);
 
   // Track waitlist seating to prevent duplicate matrix updates
@@ -79,7 +83,7 @@ export const Dashboard = ({ user, onLogout }) => {
     return null;
   };
 
-  // Handle seating parties from waitlist - FIXED: Prevent duplicate matrix updates
+  // Handle seating parties from waitlist - FIXED: Ensure floor plan and matrix updates
   const handleSeatParty = async (partyId, status) => {
     const party = waitlist.find(p => p._id === partyId);
     if (!party) return;
@@ -123,10 +127,22 @@ export const Dashboard = ({ user, onLogout }) => {
         timestamp: new Date()
       });
       socket.disconnect(); // Clean up temporary connection
+
+      // ✅ FIXED: Update waitlist with seating info for recently seated
+      const result = await updatePartyStatus(partyId, status, {
+        tableId: availableTable.id,
+        waiterSection,
+        timestamp: new Date()
+      });
+      
+      if (!result.success) {
+        console.warn('Waitlist update failed, but floor plan was updated optimistically');
+      }
+    } else {
+      // ✅ FIXED: No table found, still update waitlist but don't update floor plan
+      console.warn('No suitable table found for party:', party.partyName, 'size:', party.partySize);
+      await updatePartyStatus(partyId, status);
     }
-    
-    // Update the waitlist (remove the party)
-    await updatePartyStatus(partyId, status);
   };
   
   const findSuitableTable = (partySize) => {
@@ -156,7 +172,7 @@ export const Dashboard = ({ user, onLogout }) => {
     }
   };
 
-  // ADD THE BUSINESS METRICS COMPONENT HERE:
+  // Business metrics calculation
   const businessMetrics = useMemo(() => {
     const totalTablesServed = matrix.flat().reduce((a, b) => a + b, 0);
     const fairnessScore = (() => {
@@ -207,7 +223,11 @@ export const Dashboard = ({ user, onLogout }) => {
           onAddParty={addParty}
           onStatusChange={handleSeatParty}
           onRemove={removeParty}
-          onUpdate={updateParty} // ✅ NEW: Pass update function
+          onUpdate={updateParty}
+          // ✅ NEW: Recently seated props
+          recentlySeated={recentlySeated}
+          onRestoreParty={restoreParty}
+          onClearRecentlySeated={clearRecentlySeated}
         />
       </LeftPanel>
 
