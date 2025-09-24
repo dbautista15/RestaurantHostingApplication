@@ -1,22 +1,33 @@
 // frontend/src/hooks/useActions.js - SINGLE API INTERFACE
 import { useCallback } from 'react';
-import { useAuth } from './useAuth';
+
 const API_BASE = 'http://localhost:3001/api';
+
+// 🎯 Helper functions (defined here to avoid circular dependencies)
+export const getToken = () => localStorage.getItem('auth_token');
+export const getUser = () => {
+  const stored = localStorage.getItem('user');
+  return stored ? JSON.parse(stored) : null;
+};
+export const clearAuth = () => {
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('user');
+};
 
 // 🎯 SINGLE Hook for All Backend Actions
 export const useActions = () => {
   
   // ✅ GENERIC API Call Handler
   const apiCall = useCallback(async (endpoint, options = {}) => {
-    const token = useAuth.getToken();
-    if (!token) {
+    const token = getToken();
+    if (!token && !endpoint.includes('/auth/login')) {
       throw new Error('Authentication required');
     }
 
     const response = await fetch(`${API_BASE}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        ...(token && { 'Authorization': `Bearer ${token}` }),
         ...options.headers
       },
       ...options
@@ -131,7 +142,7 @@ export const useActions = () => {
     }, [apiCall])
   };
 
-// 🎯 DASHBOARD Action (Single Call)
+  // 🎯 DASHBOARD Action (Single Call)
   const dashboardActions = {
     load: useCallback(async () => {
       return apiCall('/dashboard');
@@ -164,7 +175,7 @@ export const useActions = () => {
     }, []),
 
     logout: useCallback(async () => {
-      const token = localStorage.getItem('auth_token');
+      const token = getToken();
       if (token) {
         try {
           await apiCall('/auth/logout', { method: 'POST' });
@@ -172,8 +183,7 @@ export const useActions = () => {
           console.warn('Backend logout failed:', error);
         }
       }
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
+      clearAuth();
     }, [apiCall]),
 
     validateToken: useCallback(async () => {
@@ -202,9 +212,6 @@ export const useActions = () => {
     apiCall
   };
 };
-
-// Export static helpers separately
-export { getToken, getUser, clearAuth };
 
 /*
 🎯 USAGE IN COMPONENTS:

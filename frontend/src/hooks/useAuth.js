@@ -3,9 +3,25 @@ import { useState, useEffect } from 'react';
 import { useActions, getUser, getToken } from './useAction';
 
 export const useAuth = () => {
-  const [user, setUser] = useState(() => getUser());
-  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const { auth } = useActions();
+
+  // Initialize auth state on mount
+  useEffect(() => {
+    const initAuth = () => {
+      const token = getToken();
+      const storedUser = getUser();
+      
+      if (token && storedUser) {
+        setUser(storedUser);
+      }
+      
+      setLoading(false);
+    };
+
+    initAuth();
+  }, []);
 
   // Simple login wrapper
   const login = async (clockInNumber, password) => {

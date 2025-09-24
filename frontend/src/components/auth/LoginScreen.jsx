@@ -1,19 +1,23 @@
 import React, { useState } from 'react';
 import { useActions } from '../../hooks/useAction';
+
 export const LoginScreen = ({ onLogin }) => {
   const [clockInNumber, setClockInNumber] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const { auth } = useActions();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     
+    console.log('Login attempt with:', { clockInNumber, password }); // Debug log
+    
     try {
-      const result = await useActions.login(clockInNumber, password);
-      if (result.success) {
+      const result = await auth.login(clockInNumber, password);
+      if (result.user) {
         onLogin(result.user);
       } else {
         setError(result.error || 'Login failed');
@@ -35,14 +39,14 @@ export const LoginScreen = ({ onLogin }) => {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Clock Number
+              Clock-In Number
             </label>
             <input
               type="text"
               value={clockInNumber}
               onChange={(e) => setClockInNumber(e.target.value)}
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Enter your clock number"
+              placeholder="Enter your clock-in number"
               required
             />
           </div>

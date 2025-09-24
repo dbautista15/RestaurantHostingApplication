@@ -1,6 +1,30 @@
 // frontend/src/components/waitlist/WaitlistEntry.jsx - LEAN VERSION
 import React, { useState } from 'react';
-import { getPriorityColor, getPriorityLabel, getWaitTime } from '../../utils/waitlistHelpers';
+
+
+
+const getPriorityColor = (priority) => {
+  switch (priority) {
+    case 'coworker': return 'bg-purple-100 text-purple-800';
+    case 'large_party': return 'bg-orange-100 text-orange-800';
+    default: return 'bg-blue-100 text-blue-800';
+  }
+};
+
+const getPriorityLabel = (priority) => {
+  switch (priority) {
+    case 'large_party': return 'Large';
+    case 'coworker': return 'Staff';
+    default: return 'Normal';
+  }
+};
+
+const getWaitTime = (createdAt) => {
+  const now = new Date();
+  const created = new Date(createdAt);
+  return Math.floor((now - created) / (1000 * 60));
+};
+
 
 // ✅ SIMPLE Edit Modal (extracted from inline editing)
 const EditPartyModal = ({ isOpen, entry, onSave, onCancel }) => {
