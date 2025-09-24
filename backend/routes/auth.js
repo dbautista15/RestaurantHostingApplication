@@ -44,10 +44,13 @@ const router = express.Router();
  * - 403: User account disabled
  */
 router.post('/login', async (req, res) => {
-  try {
     // TODO: Extract clockNumber and password from request body
     // HINT: Use destructuring: const { clockNumber, password } = req.body;
     // YOUR CODE HERE:
+  console.log('=== LOGIN REQUEST ===');
+  console.log('Body received:', JSON.stringify(req.body));
+  console.log('Headers:', req.headers['content-type']);
+  try{
     const { clockInNumber, password } = req.body;
 
     console.log('Login attempt - clockInNumber:', clockInNumber, 'type:', typeof clockInNumber);
@@ -144,15 +147,16 @@ router.post('/login', async (req, res) => {
       token
     });
   } catch (error) {
-    // TODO: Error handling
-    // ENGINEERING DECISION: What errors should be logged vs returned to client?
-    // YOUR CODE HERE:
     console.error('Login error:',error);
     res.status(500).json({
       error: 'Authentication service unavailable'
     });
+
   }
-});
+    // TODO: Error handling
+    // ENGINEERING DECISION: What errors should be logged vs returned to client?
+    // YOUR CODE HERE:
+  });
 
 /**
  * TODO: Implement Logout Endpoint

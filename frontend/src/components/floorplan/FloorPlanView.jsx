@@ -335,10 +335,10 @@ export const FloorPlanView = React.forwardRef(({
         </div>
       </div>
 
-      {/* 🎯 SIMPLE Stats - All calculated by backend */}
+      🎯 SIMPLE Stats - All calculated by backend
       <div className="p-4 border-t border-gray-200 bg-gray-50">
         <div className="grid grid-cols-3 gap-4 text-center">
-          {tables
+          {Object.values(tables)
             .reduce((acc, table) => {
               if (table.stats) {
                 Object.entries(table.stats).forEach(([key, value]) => {

@@ -1,7 +1,7 @@
 // frontend/src/hooks/useAction.js - COMPLETE VERSION
 import { useCallback } from 'react';
 
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = 'http://localhost:3000/api';
 
 // 🎯 Helper functions (defined here to avoid circular dependencies)
 export const getToken = () => localStorage.getItem('auth_token');
