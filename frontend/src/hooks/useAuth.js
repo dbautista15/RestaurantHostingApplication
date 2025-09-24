@@ -1,6 +1,6 @@
 // frontend/src/hooks/useAuth.js - LEAN VERSION (Backend API Only)
 import { useState, useEffect } from 'react';
-import { authService } from '../services/authService';
+import { useActions } from '../hooks/useAction';
 
 export const useAuth = () => {
   const [user, setUser] = useState(null);
@@ -9,8 +9,8 @@ export const useAuth = () => {
   // 🎯 Initialize from stored token on app start
   useEffect(() => {
     const initializeAuth = async () => {
-      const token = authService.getToken();
-      const storedUser = authService.getUser();
+      const token = user.getToken();
+      const storedUser = useAuth.getUser();
       
       if (token && storedUser) {
         // ✅ Validate token with backend /me endpoint
@@ -24,7 +24,7 @@ export const useAuth = () => {
             setUser(data.user);
           } else {
             // Token invalid, clear it
-            authService.logout();
+            useActions.logout();
           }
         } catch (error) {
           // Network error, use stored user but could show "offline" indicator
@@ -45,7 +45,7 @@ export const useAuth = () => {
       setLoading(true);
       
       // ✅ Backend does all validation, JWT generation, business logic
-      const result = await authService.login(clockInNumber, password);
+      const result = await useActions.login(clockInNumber, password);
       
       if (result.success) {
         setUser(result.user);
@@ -65,7 +65,7 @@ export const useAuth = () => {
   const logout = async () => {
     try {
       // ✅ Call backend logout endpoint (clears server-side session if any)
-      const token = authService.getToken();
+      const token = useAuth.getToken();
       if (token) {
         await fetch('http://localhost:3001/api/auth/logout', {
           method: 'POST',
@@ -78,7 +78,7 @@ export const useAuth = () => {
     }
     
     // ✅ Clear local storage and state
-    authService.logout();
+    useActions.logout();
     setUser(null);
   };
 

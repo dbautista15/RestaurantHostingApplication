@@ -2,13 +2,11 @@
 import React from 'react';
 import { SuggestionCard } from './SuggestionCard';
 import { MatrixDisplay } from './MatrixDisplay';
-import { PendingAssignments } from './PendingAssignments';
 
 export const SuggestionsPanel = ({ 
   suggestions,
   matrix,
   waiters,
-  pendingAssignments,
   onAssignParty,
   onConfirmSeating,
   onCancelAssignment 
@@ -23,12 +21,7 @@ export const SuggestionsPanel = ({
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {/* Pending Assignments */}
-        <PendingAssignments 
-          assignments={pendingAssignments}
-          onConfirm={onConfirmSeating}
-          onCancel={onCancelAssignment}
-        />
+
 
         {/* Smart Suggestions */}
         <SuggestionCard 

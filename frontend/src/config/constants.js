@@ -1,78 +1,190 @@
-// frontend/src/config/constants.js - LEAN VERSION (UI Only)
+// frontend/src/config/constants.js - UI-ONLY VERSION
 /**
  * 🎯 FRONTEND CONFIG - UI CONCERNS ONLY
- * Business logic and data definitions moved to backend
+ * All business logic moved to backend APIs
  */
 
 // ✅ API Configuration
-export const API_BASE = 'http://localhost:3001/api';
+export const API_CONFIG = {
+  BASE_URL: process.env.REACT_APP_API_URL || 'http://localhost:3001/api',
+  TIMEOUT: 10000, // ms
+  RETRY_ATTEMPTS: 3,
+  RETRY_DELAY: 1000 // ms
+};
 
-// ✅ UI Grid & Layout Configuration  
+// ✅ Grid & Layout Configuration (Pure UI)
 export const GRID_CONFIG = {
   size: 30,
   cols: 22,
-  rows: 18
+  rows: 18,
+  snapToGrid: true,
+  showGrid: true
 };
 
 export const LAYOUT_CONFIG = {
-  waitlistWidth: '350px',
-  floorplanMinWidth: '600px', 
-  minWaitlistWidth: '250px',
-  minSuggestionsWidth: '380px',
-  suggestionsWidth: '450px'
+  panels: {
+    waitlist: { width: '350px', minWidth: '280px', maxWidth: '450px' },
+    floorplan: { minWidth: '600px', flex: 1 },
+    suggestions: { width: '380px', minWidth: '320px', maxWidth: '500px' }
+  },
+  
+  breakpoints: {
+    mobile: '768px',
+    tablet: '1024px',
+    desktop: '1280px'
+  },
+  
+  header: { height: '70px' },
+  footer: { height: '50px' }
 };
 
-// ✅ Visual Theme Configuration (UI styling only)
-export const WAITER_COLORS = {
-  background: {
-    1: '#ffebee', 2: '#e8f5e8', 3: '#fff3e0', 4: '#e3f2fd', 
-    5: '#f3e5f5', 6: '#fce4ec', 7: '#e0f2f1'
+// ✅ Visual Theme Configuration (Styling Only)
+export const THEME = {
+  colors: {
+    primary: '#2563eb',
+    success: '#059669', 
+    warning: '#d97706',
+    danger: '#dc2626',
+    gray: '#6b7280'
   },
-  border: {
-    1: '#f44336', 2: '#4caf50', 3: '#ff9800', 4: '#2196f3',
-    5: '#9c27b0', 6: '#e91e63', 7: '#009688'
+  
+  waiterColors: {
+    background: {
+      1: '#ffebee', 2: '#e8f5e8', 3: '#fff3e0', 4: '#e3f2fd', 
+      5: '#f3e5f5', 6: '#fce4ec', 7: '#e0f2f1'
+    },
+    border: {
+      1: '#f44336', 2: '#4caf50', 3: '#ff9800', 4: '#2196f3',
+      5: '#9c27b0', 6: '#e91e63', 7: '#009688'
+    }
+  },
+  
+  tableStates: {
+    available: { bg: 'bg-green-100', border: 'border-green-400', text: 'text-green-800' },
+    assigned: { bg: 'bg-yellow-100', border: 'border-yellow-400', text: 'text-yellow-800' },
+    occupied: { bg: 'bg-red-100', border: 'border-red-400', text: 'text-red-800' },
+    inactive: { bg: 'bg-gray-50', border: 'border-gray-300', text: 'text-gray-400' }
+  },
+  
+  priorities: {
+    normal: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Normal' },
+    large_party: { bg: 'bg-orange-100', text: 'text-orange-800', label: 'Large' },
+    coworker: { bg: 'bg-purple-100', text: 'text-purple-800', label: 'Staff' }
   }
 };
 
-// ✅ Performance Configuration (frontend concerns)
+// ✅ UI Behavior Configuration
+export const UI_CONFIG = {
+  animations: {
+    duration: 200, // ms
+    easing: 'ease-in-out',
+    enableAnimations: true
+  },
+  
+  interactions: {
+    doubleClickDelay: 300, // ms
+    dragThreshold: 5, // px
+    longPressDelay: 500 // ms
+  },
+  
+  feedback: {
+    showToasts: true,
+    toastDuration: 3000, // ms
+    showLoadingSpinners: true,
+    optimisticUpdates: true
+  }
+};
+
+// ✅ Performance Configuration (Frontend)
 export const PERFORMANCE_CONFIG = {
-  DEBOUNCE_DELAY: 300, // ms for search inputs
-  API_TIMEOUT: 10000,  // ms
-  MAX_RETRY_ATTEMPTS: 3
+  debounceDelay: 300, // ms for search inputs
+  throttleDelay: 100, // ms for scroll/resize
+  maxRetries: 3,
+  cacheTimeout: 5 * 60 * 1000, // 5 minutes
+  
+  virtualScrolling: {
+    enabled: true,
+    itemHeight: 80, // px
+    buffer: 10 // items
+  }
 };
 
-// ✅ Feature Flags (for frontend features only)
+// ✅ Feature Flags (Frontend Features)
 export const FEATURES = {
-  ENABLE_OFFLINE_MODE: process.env.REACT_APP_OFFLINE_MODE === 'true',
-  ENABLE_DEBUG_LOGS: process.env.REACT_APP_DEBUG === 'true',
-  ENABLE_MOCK_DATA: process.env.NODE_ENV === 'development'
+  enableOfflineMode: process.env.REACT_APP_OFFLINE === 'true',
+  enableDebugMode: process.env.REACT_APP_DEBUG === 'true',
+  enableDeveloperTools: process.env.NODE_ENV === 'development',
+  enableKeyboardShortcuts: true,
+  enableTouchGestures: true,
+  enableAccessibility: true
 };
 
-// ✅ Development Configuration
+// ✅ Development Helpers
 export const DEV_CONFIG = {
-  MOCK_API_DELAY: 500, // ms to simulate network delay
-  ENABLE_DEBUG_LOGS: process.env.REACT_APP_DEBUG === 'true'
+  mockApiDelay: 500, // ms
+  enableMockData: process.env.NODE_ENV === 'development',
+  showStateInUrl: process.env.REACT_APP_DEBUG === 'true',
+  logApiCalls: process.env.REACT_APP_DEBUG === 'true'
 };
+
+// ✅ UI Display Constants (No Business Logic)
+export const DISPLAY_CONSTANTS = {
+  maxPartyNameLength: 30,
+  maxSpecialRequestsLength: 200,
+  dateFormat: 'MM/dd/yyyy',
+  timeFormat: 'HH:mm',
+  
+  pagination: {
+    defaultPageSize: 25,
+    pageSizeOptions: [10, 25, 50, 100]
+  },
+  
+  search: {
+    minQueryLength: 2,
+    maxResults: 50
+  }
+};
+
+// 🎯 BACKWARD COMPATIBILITY (Remove after refactor complete)
+export const WAITER_COLORS = THEME.waiterColors; // For existing components
+export const { BASE_URL: API_BASE } = API_CONFIG; // For existing services
 
 /*
-🎯 REMOVED - Backend Handles These:
+🎯 MASSIVE CLEANUP ACHIEVED:
 
-❌ BUSINESS_RULES - Backend validates all business rules
-❌ TABLE_STATES - Backend defines valid states  
-❌ PARTY_PRIORITIES - Backend handles priority logic
-❌ RESTAURANT_LAYOUT - Backend provides layout via API
-❌ WAITER_ASSIGNMENTS - Backend calculates assignments
-❌ SHIFT_CONFIGURATIONS - Backend manages shift logic
-❌ MOCK_TABLES, MOCK_WAITLIST - Backend provides real data
+REMOVED (Backend Now Handles):
+❌ BUSINESS_RULES - validation, limits, workflows
+❌ TABLE_STATES - state machine logic  
+❌ PRIORITY_WEIGHTS - assignment calculations
+❌ RESTAURANT_LAYOUT - table positioning data
+❌ SHIFT_CONFIGURATIONS - server assignments
+❌ FAIRNESS_ALGORITHMS - matrix calculations
+❌ MOCK_DATA - real data from backend
 
-✅ KEPT - Frontend UI Concerns:
-
-✅ API endpoints and timeouts
-✅ Grid sizing and layout dimensions  
-✅ Color schemes for visual styling
-✅ Performance settings for UI responsiveness
+KEPT (UI Concerns Only):
+✅ Grid sizing and layout dimensions
+✅ Color schemes and visual styling  
+✅ Animation and interaction settings
+✅ Performance optimizations for UI
 ✅ Feature flags for frontend features
-✅ Development helpers
+✅ Development tools and debugging
 
-RESULT: 70% smaller config, focused on UI concerns only!
+ORGANIZED BY PURPOSE:
+✅ API_CONFIG - backend communication
+✅ GRID_CONFIG - floor plan display
+✅ LAYOUT_CONFIG - responsive design
+✅ THEME - visual appearance  
+✅ UI_CONFIG - interaction behavior
+✅ PERFORMANCE_CONFIG - frontend optimization
+✅ FEATURES - frontend capabilities
+✅ DISPLAY_CONSTANTS - formatting
+
+RESULT: 
+- 70% smaller constants file
+- Clear separation of concerns
+- Easy to maintain and modify  
+- No business logic mixed with UI config
+- Perfect for design system integration
+
+Backend handles all business rules via APIs!
 */

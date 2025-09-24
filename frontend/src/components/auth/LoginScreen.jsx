@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { authService } from '../../services/authService';
-
+import { useActions } from '../../hooks/useAction';
 export const LoginScreen = ({ onLogin }) => {
   const [clockInNumber, setClockInNumber] = useState('');
   const [password, setPassword] = useState('');
@@ -13,7 +12,7 @@ export const LoginScreen = ({ onLogin }) => {
     setError('');
     
     try {
-      const result = await authService.login(clockInNumber, password);
+      const result = await useActions.login(clockInNumber, password);
       if (result.success) {
         onLogin(result.user);
       } else {

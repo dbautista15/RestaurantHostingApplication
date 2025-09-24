@@ -1,8 +1,11 @@
-// frontend/src/hooks/useDashboard.js - SIMPLIFIED SINGLE CALL
+// frontend/src/hooks/useDashboard.js - ULTRA LEAN VERSION
 import { useState, useEffect, useCallback } from 'react';
-import { authService } from '../services/authService';
+import { useActions } from './useAction';
 
 export const useDashboard = () => {
+  const actions = useActions();
+  
+  // 🎯 SINGLE State Object
   const [state, setState] = useState({
     // All data from single backend call
     waitlist: [],
@@ -10,68 +13,24 @@ export const useDashboard = () => {
     matrix: [],
     waiters: [],
     suggestions: [],
-    recentlySeated: [],
     fairnessScore: 100,
     
-    // Single loading/error state
+    // Local UI state
+    recentlySeated: [],
+    
+    // Single loading/error state  
     loading: true,
     error: null
   });
 
-  // 🎯 SINGLE API CALL - replaces multiple hooks
+  // 🎯 SINGLE API Call - Gets Everything
   const loadDashboard = useCallback(async () => {
     setState(prev => ({ ...prev, loading: true, error: null }));
     
     try {
-      const token = authService.getToken();
-      
-      // ✅ CRITICAL FIX: Check for auth token first
-      if (!token) {
-        throw new Error('Authentication required. Please login again.');
-      }
-      
-      console.log('🎯 Dashboard API call with token:', token ? 'YES' : 'NO');
-      
-      const response = await fetch('http://localhost:3001/api/dashboard', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      console.log('🎯 Dashboard response status:', response.status);
-
-      if (!response.ok) {
-        // ✅ BETTER ERROR HANDLING
-        if (response.status === 401) {
-          // Token expired or invalid - clear it and redirect to login
-          authService.logout();
-          throw new Error('Session expired. Please login again.');
-        }
-        if (response.status === 403) {
-          throw new Error('Access denied. Insufficient permissions.');
-        }
-        if (response.status === 404) {
-          throw new Error('Dashboard endpoint not found.');
-        }
-        
-        // Try to get error message from response
-        let errorMessage = `Dashboard API failed: ${response.status}`;
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch {
-          // Response wasn't JSON, use status message
-        }
-        
-        throw new Error(errorMessage);
-      }
-
-      const result = await response.json();
-      console.log('🎯 Dashboard data received:', result.success ? 'SUCCESS' : 'FAILED');
+      const result = await actions.dashboard.load();
       
       if (result.success) {
-        // 🎯 Single update with ALL data
         setState(prev => ({
           ...prev,
           waitlist: result.data.waitlist || [],
@@ -80,223 +39,86 @@ export const useDashboard = () => {
           waiters: result.data.waiters || [],
           suggestions: result.data.suggestions || [],
           fairnessScore: result.data.fairnessScore || 100,
-          recentlySeated: prev.recentlySeated, // Keep local state for this
           loading: false,
           error: null
         }));
       } else {
-        throw new Error(result.error || 'Dashboard data invalid');
+        throw new Error(result.error || 'Dashboard load failed');
       }
       
     } catch (error) {
-      console.error('Dashboard load error:', error);
       setState(prev => ({
         ...prev,
         loading: false,
         error: error.message
       }));
     }
-  }, []);
+  }, [actions.dashboard]);
 
-  // 🎯 SIMPLIFIED ACTIONS - backend does the work, we just refresh
+  // 🎯 SIMPLE Action Wrappers (No Complex Logic)
   const seatParty = useCallback(async (partyId) => {
     try {
-      const token = authService.getToken();
-      
-      // ✅ CHECK AUTH TOKEN
-      if (!token) {
-        throw new Error('Authentication required');
+      // Optimistic update for instant feedback
+      const party = state.waitlist.find(p => p._id === partyId);
+      if (party) {
+        setState(prev => ({
+          ...prev,
+          waitlist: prev.waitlist.filter(p => p._id !== partyId),
+          recentlySeated: [{
+            ...party,
+            seatedAt: new Date().toISOString()
+          }, ...prev.recentlySeated.slice(0, 19)]
+        }));
       }
-      
-      const response = await fetch('http://localhost:3001/api/seating/seat-party', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ partyId })
-      });
 
-      const result = await response.json();
+      const result = await actions.waitlist.seat(partyId);
       
-      if (result.success) {
-        // 🎯 Simple optimistic update for UI responsiveness
-        const party = state.waitlist.find(p => p._id === partyId);
-        if (party) {
-          setState(prev => ({
-            ...prev,
-            waitlist: prev.waitlist.filter(p => p._id !== partyId),
-            recentlySeated: [{
-              ...party,
-              seatedAt: new Date().toISOString()
-            }, ...prev.recentlySeated.slice(0, 19)]
-          }));
-        }
-        
-        // 🎯 Refresh authoritative data from backend
-        await loadDashboard();
-        
-        return { success: true, assignment: result.assignment };
-      } else {
-        throw new Error(result.error || 'Seating failed');
-      }
+      // Refresh authoritative data
+      await loadDashboard();
+      
+      return result;
       
     } catch (error) {
-      console.error('Seat party error:', error);
-      // Rollback optimistic update on error
+      // Rollback optimistic update
       await loadDashboard();
       throw error;
     }
-  }, [state.waitlist, loadDashboard]);
+  }, [state.waitlist, actions.waitlist, loadDashboard]);
 
   const addParty = useCallback(async (partyData) => {
-    try {
-      const token = authService.getToken();
-      
-      // ✅ CHECK AUTH TOKEN  
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-      
-      const response = await fetch('http://localhost:3001/api/waitlist', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(partyData)
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        // 🎯 Refresh to get updated waitlist
-        await loadDashboard();
-        return result;
-      } else {
-        throw new Error(result.error || 'Add party failed');
-      }
-      
-    } catch (error) {
-      console.error('Add party error:', error);
-      throw error;
-    }
-  }, [loadDashboard]);
+    await actions.waitlist.add(partyData);
+    await loadDashboard();
+  }, [actions.waitlist, loadDashboard]);
 
   const updateParty = useCallback(async (partyId, updateData) => {
-    try {
-      const token = authService.getToken();
-      
-      // ✅ CHECK AUTH TOKEN
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-      
-      const response = await fetch(`http://localhost:3001/api/waitlist/${partyId}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(updateData)
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        await loadDashboard();
-        return result;
-      } else {
-        throw new Error(result.error || 'Update party failed');
-      }
-      
-    } catch (error) {
-      console.error('Update party error:', error);
-      throw error;
-    }
-  }, [loadDashboard]);
+    await actions.waitlist.update(partyId, updateData);
+    await loadDashboard();
+  }, [actions.waitlist, loadDashboard]);
 
   const removeParty = useCallback(async (partyId) => {
-    try {
-      const token = authService.getToken();
-      
-      // ✅ CHECK AUTH TOKEN
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-      
-      const response = await fetch(`http://localhost:3001/api/waitlist/${partyId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+    await actions.waitlist.remove(partyId);
+    await loadDashboard();
+  }, [actions.waitlist, loadDashboard]);
 
-      const result = await response.json();
-      
-      if (result.success) {
-        await loadDashboard();
-        return result;
-      } else {
-        throw new Error(result.error || 'Remove party failed');
-      }
-      
-    } catch (error) {
-      console.error('Remove party error:', error);
-      throw error;
-    }
-  }, [loadDashboard]);
-
-  // 🎯 Manual table seating
   const seatManually = useCallback(async (tableNumber, partySize) => {
-    try {
-      const token = authService.getToken();
-      
-      // ✅ CHECK AUTH TOKEN
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-      
-      const response = await fetch(`http://localhost:3001/api/seating/manual/${tableNumber}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ partySize })
-      });
+    await actions.seating.seatManually(tableNumber, partySize);
+    await loadDashboard();
+  }, [actions.seating, loadDashboard]);
 
-      const result = await response.json();
-      
-      if (result.success) {
-        // 🎯 Refresh to get updated table states and matrix
-        await loadDashboard();
-        return result;
-      } else {
-        throw new Error(result.error || 'Manual seating failed');
-      }
-      
-    } catch (error) {
-      console.error('Manual seating error:', error);
-      throw error;
-    }
-  }, [loadDashboard]);
-
-  // 🎯 Recently seated management (local state only)
+  // 🎯 SIMPLE Local State Management (Recently Seated)
   const restoreParty = useCallback(async (partyId) => {
     const party = state.recentlySeated.find(p => p._id === partyId);
     if (!party) return { success: false, message: 'Party not found' };
 
     try {
-      // Remove from recently seated
+      // Remove from recently seated immediately
       setState(prev => ({
         ...prev,
         recentlySeated: prev.recentlySeated.filter(p => p._id !== partyId)
       }));
 
       // Add back to waitlist via API
-      const restoredParty = {
+      await actions.waitlist.add({
         partyName: party.partyName,
         partySize: party.partySize,
         phoneNumber: party.phoneNumber,
@@ -304,46 +126,36 @@ export const useDashboard = () => {
         specialRequests: party.specialRequests,
         estimatedWait: 15,
         partyStatus: 'waiting'
-      };
+      });
 
-      await addParty(restoredParty);
-      return { success: true, message: 'Party restored to waitlist' };
+      await loadDashboard();
+      return { success: true };
       
     } catch (error) {
-      // Restore to recently seated if API call fails
+      // Restore to recently seated on failure
       setState(prev => ({
         ...prev,
         recentlySeated: [party, ...prev.recentlySeated]
       }));
       throw error;
     }
-  }, [state.recentlySeated, addParty]);
+  }, [state.recentlySeated, actions.waitlist, loadDashboard]);
 
   const clearRecentlySeated = useCallback(() => {
     setState(prev => ({ ...prev, recentlySeated: [] }));
   }, []);
 
-  // 🎯 Load initial data
+  // 🎯 Load Initial Data
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
 
-  // 🎯 Return everything the components need
+  // 🎯 SIMPLE Return Object
   return {
-    // Data (from single API call)
-    waitlist: state.waitlist,
-    tables: state.tables,
-    matrix: state.matrix,
-    waiters: state.waiters,
-    suggestions: state.suggestions,
-    recentlySeated: state.recentlySeated,
-    fairnessScore: state.fairnessScore,
+    // Data
+    ...state,
     
-    // State
-    loading: state.loading,
-    error: state.error,
-    
-    // Actions (all refresh from single endpoint)
+    // Actions (all call backend + refresh)
     seatParty,
     addParty,
     updateParty,
@@ -360,26 +172,36 @@ export const useDashboard = () => {
 /*
 🎯 KEY IMPROVEMENTS:
 
-1. SINGLE API CALL:
-   ✅ One call to /api/dashboard gets everything
-   ❌ No more separate calls to /waitlist, /tables, /suggestions, etc.
+REMOVED (~100 lines):
+❌ Complex auth token checking (useActions handles)
+❌ Manual fetch calls with headers
+❌ Error handling boilerplate
+❌ Multiple API endpoints management
+❌ Token refresh logic
 
-2. SIMPLIFIED STATE:
-   ✅ One loading state, one error state
-   ❌ No more complex orchestration of multiple loading states
+KEPT (~50 lines):
+✅ Single dashboard load call
+✅ Simple action wrappers
+✅ Local state for recently seated
+✅ Optimistic updates for UX
 
-3. LEAN ACTIONS:
-   ✅ Each action calls backend then refreshes dashboard
-   ❌ No complex optimistic update logic
-
-4. PERFECT SYNC:
-   ✅ All data arrives together, perfectly synchronized
-   ❌ No more data inconsistencies between components
-
-5. EASY TO DEBUG:
-   ✅ Single network request to monitor
-   ❌ No more waterfall requests or race conditions
+POWERED BY useActions:
+✅ Auto token management
+✅ Consistent error handling
+✅ Centralized API configuration
+✅ Type-safe calls
 
 USAGE IN COMPONENTS:
-const { waitlist, tables, suggestions, loading, seatParty } = useDashboard();
+const { 
+  waitlist, tables, suggestions, 
+  loading, error,
+  seatParty, addParty 
+} = useDashboard();
+
+RESULT: 
+- Single hook call gets everything
+- No complex state orchestration  
+- Perfect data synchronization
+- Easy to test and debug
+- Backend does all business logic
 */

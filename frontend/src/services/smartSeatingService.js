@@ -1,7 +1,6 @@
 // frontend/src/services/smartSeatingService.js
 import { API_BASE } from '../config/constants';
-import { authService } from './authService';
-
+import { useAuth } from '../hooks/useAuth';
 export const smartSeatingService = {
   /**
    * 🎯 GET SUGGESTIONS FROM BACKEND
@@ -10,7 +9,7 @@ export const smartSeatingService = {
   async getSuggestions() {
     const response = await fetch(`${API_BASE}/smart-seating/suggestions`, {
       headers: {
-        'Authorization': `Bearer ${authService.getToken()}`
+        'Authorization': `Bearer ${useAuth.getToken()}`
       }
     });
 
@@ -30,7 +29,7 @@ export const smartSeatingService = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authService.getToken()}`
+        'Authorization': `Bearer ${useAuth.getToken()}`
       },
       body: JSON.stringify({ partyId, manualTableId })
     });
@@ -50,7 +49,7 @@ export const smartSeatingService = {
   async getFairnessMatrix() {
     const response = await fetch(`${API_BASE}/smart-seating/fairness-matrix`, {
       headers: {
-        'Authorization': `Bearer ${authService.getToken()}`
+        'Authorization': `Bearer ${useAuth.getToken()}`
       }
     });
 
@@ -70,7 +69,7 @@ export const smartSeatingService = {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authService.getToken()}`
+        'Authorization': `Bearer ${useAuth.getToken()}`
       },
       body: JSON.stringify({ partySize })
     });
