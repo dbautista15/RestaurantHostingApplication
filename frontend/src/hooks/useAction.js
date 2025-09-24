@@ -131,10 +131,60 @@ export const useActions = () => {
     }, [apiCall])
   };
 
-  // 🎯 DASHBOARD Action (Single Call)
+// 🎯 DASHBOARD Action (Single Call)
   const dashboardActions = {
     load: useCallback(async () => {
       return apiCall('/dashboard');
+    }, [apiCall])
+  };
+
+  // 🎯 AUTH Actions (Simplified)
+  const authActions = {
+    login: useCallback(async (clockInNumber, password) => {
+      // Don't use apiCall here since we don't have token yet
+      const response = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clockInNumber, password })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Login failed');
+      }
+
+      const data = await response.json();
+      
+      if (data.token) {
+        localStorage.setItem('auth_token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+      }
+      
+      return data;
+    }, []),
+
+    logout: useCallback(async () => {
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        try {
+          await apiCall('/auth/logout', { method: 'POST' });
+        } catch (error) {
+          console.warn('Backend logout failed:', error);
+        }
+      }
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+    }, [apiCall]),
+
+    validateToken: useCallback(async () => {
+      return apiCall('/auth/me');
+    }, [apiCall])
+  };
+
+  // 🎯 DEMO Actions (Moving from components)
+  const demoActions = {
+    populateWaitlist: useCallback(async () => {
+      return apiCall('/demo/populate-waitlist', { method: 'POST' });
     }, [apiCall])
   };
 
@@ -145,11 +195,16 @@ export const useActions = () => {
     tables: tableActions,
     shifts: shiftActions,
     dashboard: dashboardActions,
+    auth: authActions,
+    demo: demoActions,
     
     // Generic API call for custom endpoints
     apiCall
   };
 };
+
+// Export static helpers separately
+export { getToken, getUser, clearAuth };
 
 /*
 🎯 USAGE IN COMPONENTS:

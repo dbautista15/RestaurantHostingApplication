@@ -43,6 +43,7 @@ app.use('/api/tables', require('./routes/tables'));       // Table read-only
 app.use('/api/shifts', require('./routes/shifts'));       // Shift management
 app.use('/api/seating', require('./routes/seating'));     // ALL seating operations
 app.use('/api/dashboard', require('./routes/dashboard')); // Dashboard data
+app.use('/api/demo', require('./routes/demo'));
 
 
 
