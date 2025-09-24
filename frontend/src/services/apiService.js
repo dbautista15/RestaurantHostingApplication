@@ -1,56 +1,79 @@
-import { API_BASE } from '../config/constants';
-import { authService } from './authService';
+class RestaurantApiClient {
+  constructor() {
+    this.baseURL = 'http://localhost:3001/api';
+    this.token = localStorage.getItem('token');
+  }
 
-export const apiService = {
   async request(endpoint, options = {}) {
-    const token = authService.getToken();
-    const config = {
+    const response = await fetch(`${this.baseURL}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` })
+        ...(this.token && { 'Authorization': `Bearer ${this.token}` })
       },
       ...options
-    };
+    });
 
-    const response = await fetch(`${API_BASE}${endpoint}`, config);
     const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.error || 'Request failed');
-    }
-    
+    if (!response.ok) throw new Error(data.error || 'Request failed');
     return data;
-  },
+  }
 
+  // Auth
+  async login(clockInNumber, password) {
+    return this.request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ clockInNumber, password })
+    });
+  }
+
+  // Dashboard - ONE CALL gets everything
+  async getDashboardData() {
+    return this.request('/dashboard');
+  }
+
+  // Seating - ALL seating operations through one endpoint
+  async getSuggestions() {
+    return this.request('/seating/suggestions');
+  }
+
+  async seatParty(partyId, options = {}) {
+    return this.request('/seating/seat-party', {
+      method: 'POST',
+      body: JSON.stringify({ partyId, options })
+    });
+  }
+
+  async seatManually(tableNumber, partySize) {
+    return this.request(`/seating/manual/${tableNumber}`, {
+      method: 'PUT',
+      body: JSON.stringify({ partySize })
+    });
+  }
+
+  async getFairnessMatrix() {
+    return this.request('/seating/fairness-matrix');
+  }
+
+  // Waitlist
   async getWaitlist() {
     return this.request('/waitlist');
-  },
+  }
 
   async addToWaitlist(partyData) {
     return this.request('/waitlist', {
       method: 'POST',
       body: JSON.stringify(partyData)
     });
-  },
-
-  // ✅ NEW: Update waitlist entry
-  async updateWaitlistEntry(id, updateData) {
-    return this.request(`/waitlist/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(updateData)
-    });
-  },
-
-  async updateWaitlistStatus(id, partyStatus) {
-    return this.request(`/waitlist/${id}/partyStatus`, {
-      method: 'PUT',
-      body: JSON.stringify({ partyStatus })
-    });
-  },
-
-  async removeFromWaitlist(id) {
-    return this.request(`/waitlist/${id}`, {
-      method: 'DELETE'
-    });
   }
-};
+
+  // Tables (read-only)
+  async getTables() {
+    return this.request('/tables');
+  }
+
+  async getTablesBySection(section) {
+    return this.request(`/tables/section/${section}`);
+  }
+}
+
+export const apiClient = new RestaurantApiClient();

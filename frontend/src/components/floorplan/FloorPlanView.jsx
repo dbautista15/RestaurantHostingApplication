@@ -351,33 +351,48 @@ export const FloorPlanView = React.forwardRef((props, ref) => {
     ));
   }, [isTableActive, tables]);
 
-  // ✅ NEW: Handle party size confirmation
-  const handlePartySizeConfirm = useCallback((partySize) => {
-    if (!pendingOccupiedTable) return;
+// frontend - SIMPLIFIED business logic
+const handlePartySizeConfirm = useCallback(async (partySize) => {
+  if (!pendingOccupiedTable) return;
 
-    // Update table state to occupied with party info
-    const partyInfo = {
-      name: `Party of ${partySize}`,
-      size: partySize
-    };
+  try {
+    // ✅ Call backend to coordinate everything
+    const response = await fetch(`http://localhost:3000/api/floorplan/manual-seat/${pendingOccupiedTable.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authService.getToken()}`
+      },
+      body: JSON.stringify({ partySize })
+    });
 
-    setTables(prev => prev.map(table => 
-      table.id === pendingOccupiedTable.id 
-        ? { 
-            ...table, 
-            state: 'occupied', 
-            occupiedBy: partyInfo 
-          }
-        : table
-    ));
-
-    // ✅ NEW: Update matrix for fairness tracking
-    updateMatrixForManualSeating(pendingOccupiedTable.id, partySize);
-
-    // Clean up modal state
-    setShowPartySizeModal(false);
-    setPendingOccupiedTable(null);
-  }, [pendingOccupiedTable, updateMatrixForManualSeating]);
+    const result = await response.json();
+    
+    if (result.success) {
+      // ✅ Update UI based on backend response
+      setTables(prev => prev.map(table => 
+        table.id === pendingOccupiedTable.id 
+          ? { 
+              ...table, 
+              state: 'occupied', 
+              occupiedBy: { name: `Party of ${partySize}`, size: partySize }
+            }
+          : table
+      ));
+      
+      // ✅ Update matrix based on backend result
+      if (result.matrixUpdate && props.onUpdateMatrix) {
+        props.onUpdateMatrix(result.matrixUpdate);
+      }
+    }
+    
+  } catch (error) {
+    console.error('Manual seating failed:', error);
+  }
+  
+  setShowPartySizeModal(false);
+  setPendingOccupiedTable(null);
+}, [pendingOccupiedTable, props]);
 
   // ✅ NEW: Handle modal cancellation
   const handlePartySizeCancel = useCallback(() => {
