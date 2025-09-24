@@ -1,12 +1,13 @@
-// frontend/src/components/dashboard/Dashboard.jsx - LEAN VERSION
+// frontend/src/components/dashboard/Dashboard.jsx - UPDATED VERSION
 import React, { useRef } from 'react';
-import { useDashboard } from '../../hooks/useDashboard'; // ✅ Single hook instead of multiple
+import { useDashboard } from '../../hooks/useDashboard';
 import { WaitlistPanel } from '../waitlist/WaitlistPanel';
 import { FloorPlanView } from '../floorplan/FloorPlanView';
 import { SuggestionsPanel } from '../seating/SuggestionsPanel';
 import { ThreePanelLayout, LeftPanel, CenterPanel, RightPanel } from '../shared/ThreePanelLayout';
+import { useActions } from '../../hooks/useAction';
 
-// ✅ Simple loading component
+// Loading and Error components remain the same
 const DashboardSkeleton = () => (
   <div className="h-screen bg-gray-50 flex items-center justify-center">
     <div className="text-center">
@@ -17,7 +18,6 @@ const DashboardSkeleton = () => (
   </div>
 );
 
-// ✅ Simple error component
 const DashboardError = ({ error, onRetry }) => (
   <div className="h-screen bg-gray-50 flex items-center justify-center">
     <div className="text-center max-w-md">
@@ -36,87 +36,88 @@ const DashboardError = ({ error, onRetry }) => (
 
 export const Dashboard = ({ user, onLogout }) => {
   const floorPlanRef = useRef(null);
+  const { seating, tables: tableActions } = useActions();
   
-  // 🎯 SINGLE HOOK CALL - replaces multiple hooks and complex state management
+  // 🎯 Still using single dashboard hook - no change needed!
   const {
-    // Data (all from single API call)
     waitlist,
-    tables, 
+    tables,
     matrix,
     waiters,
     suggestions,
     recentlySeated,
     fairnessScore,
-    
-    // State (single loading/error state)
     loading,
     error,
-    
-    // Actions (backend does the work, we just call and refresh)
     seatParty,
     addParty,
     updateParty,
     removeParty,
-    seatManually,
     restoreParty,
     clearRecentlySeated,
     refresh
   } = useDashboard();
 
-  // 🎯 SIMPLIFIED ERROR HANDLING - single error state
-  if (error) {
-    return <DashboardError error={error} onRetry={refresh} />;
-  }
+  if (error) return <DashboardError error={error} onRetry={refresh} />;
+  if (loading) return <DashboardSkeleton />;
 
-  // 🎯 SIMPLIFIED LOADING - single loading state  
-  if (loading) {
-    return <DashboardSkeleton />;
-  }
+  // 🎯 NEW: Floor plan interaction handlers (backend decides everything)
+  const handleTableClick = async (tableId, metadata = {}) => {
+    try {
+      // 🎯 WHY: Backend decides what clicking means
+      const result = await tableActions.handleClick(tableId, metadata);
+      
+      if (result.success) {
+        // Optional: Show visual feedback
+        if (floorPlanRef.current) {
+          floorPlanRef.current.highlightTable(tableId);
+        }
+        
+        // Refresh to get updated state
+        await refresh();
+      }
+    } catch (error) {
+      console.error('Table click failed:', error);
+      if (floorPlanRef.current) {
+        floorPlanRef.current.showError(tableId, error.message);
+      }
+    }
+  };
 
-  // 🎯 SIMPLIFIED HANDLERS - no complex logic, just call backend
+  const handleTableDrop = async (tableId, position) => {
+    try {
+      // 🎯 WHY: Backend validates if drop is allowed
+      const result = await tableActions.handleDrop(tableId, position);
+      
+      if (result.success) {
+        await refresh();
+      } else {
+        // Revert visual position
+        await refresh();
+      }
+    } catch (error) {
+      console.error('Table drop failed:', error);
+      await refresh(); // Revert to server state
+    }
+  };
+
+  const checkNeedsPartySize = (tableId) => {
+    // 🎯 WHY: Let backend decide but we can make a guess for UX
+    const table = tables.find(t => t.id === tableId);
+    return table?.state === 'available';
+  };
+
+  // 🎯 Existing handlers remain mostly the same
   const handleSeatParty = async (partyId) => {
     try {
       const result = await seatParty(partyId);
-      
-      // ✅ Update floor plan UI based on backend result
-      if (result.success && result.assignment && floorPlanRef.current) {
-        floorPlanRef.current.updateTableState(
-          result.assignment.table.id,
-          'occupied',
-          { 
-            name: result.assignment.party?.name || `Party of ${result.assignment.partySize}`, 
-            size: result.assignment.partySize 
-          }
-        );
-      }
-      
       return result;
     } catch (error) {
       console.error('Failed to seat party:', error);
-      // Error handling could show a toast notification here
     }
   };
 
-  const handleManualSeating = async (tableNumber, partySize) => {
-    try {
-      const result = await seatManually(tableNumber, partySize);
-      
-      // ✅ Update floor plan UI based on backend result
-      if (result.success && floorPlanRef.current) {
-        floorPlanRef.current.updateTableState(
-          tableNumber,
-          'occupied',
-          { name: `Party of ${partySize}`, size: partySize }
-        );
-      }
-      
-      return result;
-    } catch (error) {
-      console.error('Manual seating failed:', error);
-    }
-  };
-
-  // 🎯 CALCULATE BUSINESS METRICS for header display
+  // Business metrics calculation stays the same
   const businessMetrics = {
     totalTablesServed: tables.filter(t => t.state === 'occupied').length,
     fairnessScore: fairnessScore,
@@ -135,13 +136,13 @@ export const Dashboard = ({ user, onLogout }) => {
       waitlistCount={waitlist.length}
       businessMetrics={businessMetrics}
     >
-      {/* 🎯 LEFT PANEL: Waitlist Management */}
+      {/* LEFT PANEL: Waitlist - No changes needed */}
       <LeftPanel>
         <WaitlistPanel
           waitlist={waitlist}
           recentlySeated={recentlySeated}
           onAddParty={addParty}
-          onSeatParty={handleSeatParty} // ✅ Simple handler
+          onSeatParty={handleSeatParty}
           onUpdateParty={updateParty}
           onRemoveParty={removeParty}
           onRestoreParty={restoreParty}
@@ -149,57 +150,49 @@ export const Dashboard = ({ user, onLogout }) => {
         />
       </LeftPanel>
 
-      {/* 🎯 CENTER PANEL: Floor Plan */}
+      {/* 🎯 CENTER PANEL: Floor Plan - Now truly presentation only */}
       <CenterPanel>
         <FloorPlanView 
-          ref={floorPlanRef} 
+          ref={floorPlanRef}
           tables={tables}
-          onManualSeating={handleManualSeating} // ✅ Pass manual seating handler
+          gridConfig={{ size: 30, cols: 22, rows: 18 }} // Could come from backend
+          onTableClick={handleTableClick}
+          onTableDrop={handleTableDrop}
+          onRequestPartySize={checkNeedsPartySize}
         />
       </CenterPanel>
 
-      {/* 🎯 RIGHT PANEL: Smart Seating & Matrix */}
+      {/* RIGHT PANEL: Suggestions - No changes needed */}
       <RightPanel>
         <SuggestionsPanel
           suggestions={suggestions}
           matrix={matrix}
           waiters={waiters}
           fairnessScore={fairnessScore}
-          onAssignParty={handleSeatParty} // ✅ Same handler for suggestions
-          // Remove onConfirmSeating and onCancelAssignment - backend handles this
+          onAssignParty={handleSeatParty}
         />
       </RightPanel>
     </ThreePanelLayout>
   );
 };
 
-/*
-🎯 MASSIVE SIMPLIFICATION ACHIEVED:
-
-REMOVED (~200 lines):
-❌ Complex state management with multiple hooks
-❌ Multiple loading states orchestration  
-❌ Data synchronization logic
-❌ Manual matrix updates
-❌ Optimistic update rollback logic
-❌ Cache management
-❌ Error boundary complexity
-
-KEPT (~100 lines):
-✅ Single data hook call
-✅ Simple handlers that call backend
-✅ Clean component composition  
-✅ UI updates based on backend responses
-✅ Business metrics calculation for display
-
-KEY BENEFITS:
-1. Single API call instead of 3-4 separate calls
-2. Single loading state instead of complex orchestration
-3. Perfect data synchronization (everything arrives together)
-4. Simpler error handling
-5. No race conditions or waterfall requests
-6. Easy to debug (one network request)
-7. Consistent data across all panels
-
-RESULT: 50% smaller, 90% less complexity, same functionality!
-*/
+/**
+ * 🎯 WHAT CHANGED:
+ * 
+ * 1. FLOOR PLAN HANDLERS
+ *    - onTableClick: Just passes click to backend
+ *    - onTableDrop: Backend validates position
+ *    - onRequestPartySize: Simple check, backend decides
+ * 
+ * 2. NO BUSINESS LOGIC
+ *    - No state transitions
+ *    - No validation
+ *    - No assignment calculations
+ * 
+ * 3. BACKEND COMMUNICATION
+ *    - Every action goes to backend
+ *    - Always refresh after changes
+ *    - Backend is source of truth
+ * 
+ * The Dashboard remains clean and simple!
+ */

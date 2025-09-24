@@ -1,9 +1,7 @@
-// frontend/src/components/floorplan/FloorPlanView.jsx - ULTRA LEAN VERSION
+// frontend/src/components/floorplan/FloorPlanView.jsx - PURE PRESENTATION VERSION
 import React, { useState, useRef, useCallback, useImperativeHandle } from 'react';
-import { WAITER_COLORS, GRID_CONFIG } from '../../config/constants';
-import { useShift } from '../../context/ShiftContext';
 
-// ✅ SIMPLE Modal Component (UI only)
+// ✅ SIMPLE Modal Component (UI only - no business logic)
 const PartySizeModal = ({ isOpen, tableNumber, onConfirm, onCancel }) => {
   const [partySize, setPartySize] = useState(4);
 
@@ -49,42 +47,55 @@ const PartySizeModal = ({ isOpen, tableNumber, onConfirm, onCancel }) => {
   );
 };
 
-// ✅ MAIN Component - Dramatically Simplified
+// 🎯 MAIN Component - Now truly "dumb" presentation only
 export const FloorPlanView = React.forwardRef(({ 
-  tables = [], 
-  onManualSeating 
+  tables = [],           // 🎯 WHY: Tables come from backend with ALL data (position, state, waiter)
+  gridConfig = {},       // 🎯 WHY: Grid config comes from backend (could change per location)
+  onTableClick,          // 🎯 WHY: Just report clicks, don't decide what happens
+  onTableDrop,           // 🎯 WHY: Just report drop position, backend validates
+  onRequestPartySize     // 🎯 WHY: Let parent/backend decide when to show modal
 }, ref) => {
-  const { shiftData } = useShift();
   
-  // 🎯 MINIMAL State - Just UI concerns
-  const [localTables, setLocalTables] = useState(tables);
+  // 🎯 MINIMAL State - Only UI concerns, no business data
   const [draggedTable, setDraggedTable] = useState(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [showPartySizeModal, setShowPartySizeModal] = useState(false);
-  const [pendingTable, setPendingTable] = useState(null);
+  const [pendingAction, setPendingAction] = useState(null);
   
   const gridRef = useRef(null);
-  const { size: GRID_SIZE, cols: GRID_COLS, rows: GRID_ROWS } = GRID_CONFIG;
+  
+  // 🎯 WHY: Grid config from backend allows different restaurants/layouts
+  const { 
+    size = 30, 
+    cols = 22, 
+    rows = 18,
+    snapToGrid = true 
+  } = gridConfig;
 
-  // 🎯 SYNC with parent data
-  React.useEffect(() => {
-    setLocalTables(tables);
-  }, [tables]);
+  // 🎯 EXPOSE only UI update methods (no business logic)
+  useImperativeHandle(ref, () => ({
+    // Parent can trigger visual updates based on backend responses
+    highlightTable: (tableId) => {
+      // Pure visual feedback
+      const element = document.getElementById(`table-${tableId}`);
+      if (element) {
+        element.classList.add('ring-4', 'ring-blue-500');
+        setTimeout(() => {
+          element.classList.remove('ring-4', 'ring-blue-500');
+        }, 2000);
+      }
+    },
+    showError: (tableId, message) => {
+      // Pure visual feedback for errors
+      console.log(`Table ${tableId} error: ${message}`);
+      // Could show a tooltip or shake animation
+    }
+  }), []);
 
-  // 🎯 EXPOSE simple update method to parent
-  const updateTableState = useCallback((tableId, newState, partyInfo = null) => {
-    setLocalTables(prev => prev.map(table => 
-      table.id === tableId 
-        ? { ...table, state: newState, occupiedBy: partyInfo }
-        : table
-    ));
-  }, []);
-
-  useImperativeHandle(ref, () => ({ updateTableState }), [updateTableState]);
-
-  // ✅ PURE UI Logic - Drag and Drop
+  // ✅ PURE UI Logic - Drag and Drop (no business validation)
   const handleMouseDown = useCallback((e, table) => {
-    if (table.section === null) return; // Only active tables draggable
+    // 🎯 WHY: Let backend decide if table is draggable
+    if (!table.isDraggable) return;
     
     e.preventDefault();
     const rect = e.currentTarget.getBoundingClientRect();
@@ -99,21 +110,68 @@ export const FloorPlanView = React.forwardRef(({
     if (!draggedTable || !gridRef.current) return;
 
     const gridRect = gridRef.current.getBoundingClientRect();
-    const x = Math.round((e.clientX - gridRect.left - dragOffset.x) / GRID_SIZE);
-    const y = Math.round((e.clientY - gridRect.top - dragOffset.y) / GRID_SIZE);
+    const x = Math.round((e.clientX - gridRect.left - dragOffset.x) / size);
+    const y = Math.round((e.clientY - gridRect.top - dragOffset.y) / size);
 
-    const constrainedX = Math.max(0, Math.min(GRID_COLS - 2, x));
-    const constrainedY = Math.max(0, Math.min(GRID_ROWS - 1, y));
+    // Just update visual position - backend will validate on drop
+    const element = document.getElementById(`table-${draggedTable.id}`);
+    if (element) {
+      element.style.left = `${x * size + 2}px`;
+      element.style.top = `${y * size + 2}px`;
+    }
+  }, [draggedTable, dragOffset, size]);
 
-    setLocalTables(prev => prev.map(table => 
-      table.id === draggedTable.id 
-        ? { ...table, x: constrainedX, y: constrainedY }
-        : table
-    ));
-  }, [draggedTable, dragOffset, GRID_SIZE, GRID_COLS, GRID_ROWS]);
+  const handleMouseUp = useCallback((e) => {
+    if (!draggedTable || !gridRef.current) return;
 
-  const handleMouseUp = useCallback(() => {
+    const gridRect = gridRef.current.getBoundingClientRect();
+    const x = Math.round((e.clientX - gridRect.left - dragOffset.x) / size);
+    const y = Math.round((e.clientY - gridRect.top - dragOffset.y) / size);
+
+    // 🎯 WHY: Just report the drop - backend decides if valid
+    if (onTableDrop) {
+      onTableDrop(draggedTable.id, { x, y });
+    }
+
     setDraggedTable(null);
+  }, [draggedTable, dragOffset, size, onTableDrop]);
+
+  // 🎯 SIMPLE Table Click Handler (no business logic)
+  const handleTableClick = useCallback((table) => {
+    // 🎯 WHY: Don't decide what click means - just report it
+    if (onTableClick) {
+      onTableClick(table.id, table);
+    }
+  }, [onTableClick]);
+
+  // 🎯 SIMPLE Double Click Handler
+  const handleTableDoubleClick = useCallback((table) => {
+    // 🎯 WHY: Backend tells us if we need party size
+    if (onRequestPartySize) {
+      const needsPartySize = onRequestPartySize(table.id);
+      if (needsPartySize) {
+        setPendingAction({ tableId: table.id, tableNumber: table.number });
+        setShowPartySizeModal(true);
+      } else {
+        // Backend handles the action directly
+        handleTableClick(table);
+      }
+    }
+  }, [onRequestPartySize, handleTableClick]);
+
+  // 🎯 MODAL Handlers (just pass data up)
+  const handlePartySizeConfirm = useCallback((partySize) => {
+    if (pendingAction && onTableClick) {
+      // 🎯 WHY: Send the click with metadata - backend decides what to do
+      onTableClick(pendingAction.tableId, { partySize });
+    }
+    setShowPartySizeModal(false);
+    setPendingAction(null);
+  }, [pendingAction, onTableClick]);
+
+  const handleModalCancel = useCallback(() => {
+    setShowPartySizeModal(false);
+    setPendingAction(null);
   }, []);
 
   // 🎯 DRAG Event Listeners
@@ -128,102 +186,69 @@ export const FloorPlanView = React.forwardRef(({
     }
   }, [draggedTable, handleMouseMove, handleMouseUp]);
 
-  // ✅ SIMPLE Table Actions
-  const handleTableDoubleClick = useCallback((table) => {
-    if (table.section === null) return;
+  // 🎯 DISPLAY Helpers (pure functions)
+  const getTableClasses = (table) => {
+    // 🎯 WHY: All styling decisions come from backend data
+    const baseClasses = "absolute cursor-pointer select-none transition-all duration-200 rounded border-2 flex flex-col items-center justify-center text-xs font-medium p-1";
     
-    // If available/assigned, show party size modal
-    if (table.state === 'available' || table.state === 'assigned') {
-      setPendingTable(table);
-      setShowPartySizeModal(true);
-    }
-    // If occupied, make available (clear table)
-    else if (table.state === 'occupied') {
-      setLocalTables(prev => prev.map(t => 
-        t.id === table.id 
-          ? { ...t, state: 'available', occupiedBy: null }
-          : t
-      ));
-    }
-  }, []);
-
-  // ✅ MODAL Handlers
-  const handlePartySizeConfirm = useCallback(async (partySize) => {
-    if (!pendingTable || !onManualSeating) return;
-
-    try {
-      // 🎯 Parent handles all business logic
-      await onManualSeating(pendingTable.number, partySize);
-      
-      // Optimistic UI update
-      setLocalTables(prev => prev.map(t => 
-        t.id === pendingTable.id 
-          ? { 
-              ...t, 
-              state: 'occupied',
-              occupiedBy: { name: `Party of ${partySize}`, size: partySize }
-            }
-          : t
-      ));
-      
-    } catch (error) {
-      console.error('Manual seating failed:', error);
+    // Use backend-provided style hints
+    if (table.styleHint) {
+      return `${baseClasses} ${table.styleHint}`;
     }
     
-    setShowPartySizeModal(false);
-    setPendingTable(null);
-  }, [pendingTable, onManualSeating]);
-
-  const handleModalCancel = useCallback(() => {
-    setShowPartySizeModal(false);
-    setPendingTable(null);
-  }, []);
-
-  // 🎯 DISPLAY Helpers
-  const getActiveWaiters = () => shiftData.serverOrder || [];
-  const getTableStateColor = (state, isActive) => {
-    if (!isActive) return 'bg-gray-50 border-gray-300 text-gray-400';
+    // Fallback to basic styling based on state
+    const stateClasses = {
+      available: 'bg-green-100 border-green-400 text-green-800',
+      occupied: 'bg-red-100 border-red-400 text-red-800',
+      assigned: 'bg-yellow-100 border-yellow-400 text-yellow-800',
+      inactive: 'bg-gray-50 border-gray-300 text-gray-400 opacity-50'
+    };
     
-    switch(state) {
-      case 'available': return 'bg-green-100 border-green-400 text-green-800';
-      case 'occupied': return 'bg-red-100 border-red-400 text-red-800';
-      case 'assigned': return 'bg-yellow-100 border-yellow-400 text-yellow-800';
-      default: return 'bg-gray-100 border-gray-400 text-gray-800';
-    }
+    return `${baseClasses} ${stateClasses[table.state] || stateClasses.inactive} ${
+      draggedTable?.id === table.id ? 'z-50 shadow-lg scale-105' : 'hover:shadow-md'
+    }`;
   };
-
-  const activeWaiters = getActiveWaiters();
-  const waiterCount = activeWaiters.length;
 
   return (
     <div className="h-full bg-white flex flex-col">
-      {/* 🎯 SIMPLE Header */}
+      {/* 🎯 SIMPLE Header - Display only */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex justify-between items-center mb-4">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Floor Plan</h2>
             <p className="text-sm text-gray-600">
-              {waiterCount} servers • Double-click tables to seat parties
+              {tables.filter(t => t.isActive).length} active tables
+              {draggedTable && " • Dragging " + draggedTable.number}
             </p>
           </div>
         </div>
 
-        {/* 🎯 SIMPLE Waiter Legend */}
+        {/* 🎯 SIMPLE Legend - Data from backend */}
         <div className="flex flex-wrap gap-2">
-          {activeWaiters.map(waiter => (
-            <div key={waiter.id} className="flex items-center gap-1">
-              <div 
-                className="w-3 h-3 rounded border"
-                style={{ 
-                  backgroundColor: WAITER_COLORS.background[waiter.id],
-                  borderColor: WAITER_COLORS.border[waiter.id]
-                }}
-              />
-              <span className="text-xs text-gray-700">
-                {waiter.name} (S{waiter.section})
-              </span>
-            </div>
-          ))}
+          {tables
+            .filter(t => t.waiterInfo)
+            .reduce((acc, table) => {
+              const key = table.waiterInfo.id;
+              if (!acc.some(w => w.id === key)) {
+                acc.push(table.waiterInfo);
+              }
+              return acc;
+            }, [])
+            .map(waiter => (
+              <div key={waiter.id} className="flex items-center gap-1">
+                <div 
+                  className="w-3 h-3 rounded border"
+                  style={{ 
+                    backgroundColor: waiter.color?.bg || '#e5e7eb',
+                    borderColor: waiter.color?.border || '#9ca3af'
+                  }}
+                />
+                <span className="text-xs text-gray-700">
+                  {waiter.name}
+                </span>
+              </div>
+            ))
+          }
         </div>
       </div>
 
@@ -233,110 +258,114 @@ export const FloorPlanView = React.forwardRef(({
           ref={gridRef}
           className="relative bg-gray-100 rounded-lg mx-auto"
           style={{
-            width: GRID_COLS * GRID_SIZE,
-            height: GRID_ROWS * GRID_SIZE,
+            width: cols * size,
+            height: rows * size,
             backgroundImage: `
               linear-gradient(to right, #e5e7eb 1px, transparent 1px),
               linear-gradient(to bottom, #e5e7eb 1px, transparent 1px)
             `,
-            backgroundSize: `${GRID_SIZE}px ${GRID_SIZE}px`
+            backgroundSize: `${size}px ${size}px`
           }}
         >
-          {/* 🎯 WAITER Section Backgrounds */}
-          {activeWaiters.map(waiter => {
-            const waiterTables = localTables.filter(t => t.section === waiter.section);
-            if (waiterTables.length === 0) return null;
+          {/* 🎯 SECTION Backgrounds - Visual only, from backend data */}
+          {tables
+            .filter(t => t.sectionInfo)
+            .reduce((acc, table) => {
+              const key = table.sectionInfo.id;
+              if (!acc.find(s => s.id === key)) {
+                acc.push({
+                  ...table.sectionInfo,
+                  tables: tables.filter(t => t.sectionInfo?.id === key)
+                });
+              }
+              return acc;
+            }, [])
+            .map(section => {
+              const sectionTables = section.tables;
+              const minX = Math.min(...sectionTables.map(t => t.position.x));
+              const maxX = Math.max(...sectionTables.map(t => t.position.x));
+              const minY = Math.min(...sectionTables.map(t => t.position.y));
+              const maxY = Math.max(...sectionTables.map(t => t.position.y));
 
-            const minX = Math.min(...waiterTables.map(t => t.x));
-            const maxX = Math.max(...waiterTables.map(t => t.x));
-            const minY = Math.min(...waiterTables.map(t => t.y));
-            const maxY = Math.max(...waiterTables.map(t => t.y));
+              return (
+                <div
+                  key={`section-${section.id}`}
+                  className="absolute rounded border-2 border-dashed opacity-20 pointer-events-none"
+                  style={{
+                    left: (minX - 0.5) * size,
+                    top: (minY - 0.5) * size,
+                    width: (maxX - minX + 2) * size,
+                    height: (maxY - minY + 2) * size,
+                    backgroundColor: section.color?.bg || 'transparent',
+                    borderColor: section.color?.border || '#e5e7eb'
+                  }}
+                />
+              );
+            })
+          }
 
-            return (
-              <div
-                key={`section-${waiter.id}`}
-                className="absolute rounded border-2 border-dashed opacity-20 pointer-events-none"
-                style={{
-                  left: (minX - 0.5) * GRID_SIZE,
-                  top: (minY - 0.5) * GRID_SIZE,
-                  width: (maxX - minX + 2) * GRID_SIZE,
-                  height: (maxY - minY + 2) * GRID_SIZE,
-                  backgroundColor: WAITER_COLORS.background[waiter.section],
-                  borderColor: WAITER_COLORS.border[waiter.section]
-                }}
-              />
-            );
-          })}
-
-          {/* 🎯 TABLE Squares */}
-          {localTables.map((table) => {
-            const isActive = table.section !== null;
-            
-            return (
-              <div
-                key={table.id}
-                className={`absolute cursor-pointer select-none transition-all duration-200 ${
-                  getTableStateColor(table.state, isActive)
-                } ${
-                  draggedTable?.id === table.id ? 'z-50 shadow-lg scale-105' : 'hover:shadow-md'
-                } ${
-                  !isActive ? 'opacity-50' : ''
-                }`}
-                style={{
-                  left: table.x * GRID_SIZE + 2,
-                  top: table.y * GRID_SIZE + 2,
-                  width: GRID_SIZE - 4,
-                  height: GRID_SIZE - 4,
-                }}
-                onMouseDown={(e) => isActive ? handleMouseDown(e, table) : null}
-                onDoubleClick={() => isActive ? handleTableDoubleClick(table) : null}
-              >
-                <div className="w-full h-full rounded border-2 flex flex-col items-center justify-center text-xs font-medium p-1">
-                  <div className="font-bold">{table.number}</div>
-                  <div className="text-[10px] opacity-75">{table.capacity}</div>
-                  {table.occupiedBy && (
-                    <div className="text-[8px] opacity-80 text-center">
-                      {table.occupiedBy.name}
-                    </div>
-                  )}
-                  {isActive && table.section && (
-                    <div className="text-[9px] opacity-60">S{table.section}</div>
-                  )}
-                </div>
+          {/* 🎯 TABLE Rendering - Pure display from backend data */}
+          {tables.map((table) => (
+            <div
+              key={table.id}
+              id={`table-${table.id}`}
+              className={getTableClasses(table)}
+              style={{
+                left: table.position.x * size + 2,
+                top: table.position.y * size + 2,
+                width: size - 4,
+                height: size - 4,
+                ...(draggedTable?.id === table.id ? { position: 'fixed' } : {})
+              }}
+              onMouseDown={(e) => handleMouseDown(e, table)}
+              onClick={() => handleTableClick(table)}
+              onDoubleClick={() => handleTableDoubleClick(table)}
+            >
+              <div className="font-bold">{table.number}</div>
+              <div className="text-[10px] opacity-75">
+                {table.displayCapacity || table.capacity}
               </div>
-            );
-          })}
+              {table.displayText && (
+                <div className="text-[8px] opacity-80 text-center">
+                  {table.displayText}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* 🎯 SIMPLE Stats */}
+      {/* 🎯 SIMPLE Stats - All calculated by backend */}
       <div className="p-4 border-t border-gray-200 bg-gray-50">
         <div className="grid grid-cols-3 gap-4 text-center">
-          <div>
-            <div className="text-lg font-bold text-green-600">
-              {localTables.filter(t => t.section && t.state === 'available').length}
-            </div>
-            <div className="text-xs text-gray-600">Available</div>
-          </div>
-          <div>
-            <div className="text-lg font-bold text-yellow-600">
-              {localTables.filter(t => t.section && t.state === 'assigned').length}
-            </div>
-            <div className="text-xs text-gray-600">Assigned</div>
-          </div>
-          <div>
-            <div className="text-lg font-bold text-red-600">
-              {localTables.filter(t => t.section && t.state === 'occupied').length}
-            </div>
-            <div className="text-xs text-gray-600">Occupied</div>
-          </div>
+          {tables
+            .reduce((acc, table) => {
+              if (table.stats) {
+                Object.entries(table.stats).forEach(([key, value]) => {
+                  if (!acc[key]) acc[key] = { value: 0, color: 'gray', label: key };
+                  acc[key].value += value;
+                  acc[key].color = table.stats.color || 'gray';
+                });
+              }
+              return acc;
+            }, {})
+            .slice(0, 3)
+            .map((stat, index) => (
+              <div key={index}>
+                <div className={`text-lg font-bold text-${stat.color}-600`}>
+                  {stat.value}
+                </div>
+                <div className="text-xs text-gray-600">{stat.label}</div>
+              </div>
+            ))
+          }
         </div>
       </div>
 
       {/* 🎯 MODAL */}
       <PartySizeModal
         isOpen={showPartySizeModal}
-        tableNumber={pendingTable?.number}
+        tableNumber={pendingAction?.tableNumber}
         onConfirm={handlePartySizeConfirm}
         onCancel={handleModalCancel}
       />
@@ -347,29 +376,49 @@ export const FloorPlanView = React.forwardRef(({
 FloorPlanView.displayName = 'FloorPlanView';
 
 /*
-🎯 MASSIVE REDUCTION ACHIEVED:
+🎯 WHAT WE REMOVED (Business Logic Now in Backend):
 
-REMOVED (~300 lines):
-❌ Server management logic (backend handles)
-❌ Complex waiter assignment (backend calculates) 
-❌ Table combining logic (too complex for UI)
-❌ Business rule validation (backend validates)
-❌ Matrix calculations (backend provides)
-❌ Complex state transitions (backend manages)
+❌ Section assignment calculations
+❌ Waiter-to-table mapping logic
+❌ Table state transition rules (available → occupied)
+❌ Validation of what tables can be dragged
+❌ Capacity checking
+❌ Decision of when to show party size modal
+❌ State change logic on double-click
+❌ Hardcoded grid configuration
+❌ Hardcoded waiter colors
+❌ Table combination logic
 
-KEPT (~150 lines):
-✅ Drag and drop (pure UI interaction)
-✅ Visual styling and colors
-✅ Simple modal for party size
-✅ Grid layout and positioning
-✅ Double-click interactions
+🎯 WHAT WE KEPT (Pure UI Concerns):
 
-SAME UX:
-✅ Drag tables around - same feel
-✅ Double-click to seat - same flow  
-✅ Visual feedback - same colors
-✅ Modal popup - same design
-✅ Waiter sections - same display
+✅ Drag and drop visual feedback
+✅ Mouse event handling
+✅ Modal display management
+✅ Visual styling application
+✅ Grid rendering
+✅ Click event reporting
 
-RESULT: 50% smaller, 90% less complex, identical user experience!
+🎯 HOW IT WORKS NOW:
+
+1. Backend sends complete table data with:
+   - position: { x, y }
+   - state: 'available' | 'occupied' | etc
+   - waiterInfo: { id, name, color }
+   - sectionInfo: { id, color }
+   - styleHint: 'extra CSS classes'
+   - isDraggable: boolean
+   - displayText: what to show
+   - stats: for the footer
+
+2. Frontend just:
+   - Renders what it's told
+   - Reports user interactions
+   - Provides visual feedback
+
+3. Parent component (Dashboard) handles:
+   - onTableClick → calls backend API
+   - onTableDrop → validates with backend
+   - onRequestPartySize → asks backend if needed
+
+This is now a truly "dumb" component! 🎉
 */
