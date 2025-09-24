@@ -24,6 +24,14 @@ export const useDashboard = () => {
     
     try {
       const token = authService.getToken();
+      
+      // ✅ CRITICAL FIX: Check for auth token first
+      if (!token) {
+        throw new Error('Authentication required. Please login again.');
+      }
+      
+      console.log('🎯 Dashboard API call with token:', token ? 'YES' : 'NO');
+      
       const response = await fetch('http://localhost:3001/api/dashboard', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -31,11 +39,36 @@ export const useDashboard = () => {
         }
       });
 
+      console.log('🎯 Dashboard response status:', response.status);
+
       if (!response.ok) {
-        throw new Error(`Dashboard API failed: ${response.status}`);
+        // ✅ BETTER ERROR HANDLING
+        if (response.status === 401) {
+          // Token expired or invalid - clear it and redirect to login
+          authService.logout();
+          throw new Error('Session expired. Please login again.');
+        }
+        if (response.status === 403) {
+          throw new Error('Access denied. Insufficient permissions.');
+        }
+        if (response.status === 404) {
+          throw new Error('Dashboard endpoint not found.');
+        }
+        
+        // Try to get error message from response
+        let errorMessage = `Dashboard API failed: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          // Response wasn't JSON, use status message
+        }
+        
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
+      console.log('🎯 Dashboard data received:', result.success ? 'SUCCESS' : 'FAILED');
       
       if (result.success) {
         // 🎯 Single update with ALL data
@@ -69,6 +102,12 @@ export const useDashboard = () => {
   const seatParty = useCallback(async (partyId) => {
     try {
       const token = authService.getToken();
+      
+      // ✅ CHECK AUTH TOKEN
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+      
       const response = await fetch('http://localhost:3001/api/seating/seat-party', {
         method: 'POST',
         headers: {
@@ -113,6 +152,12 @@ export const useDashboard = () => {
   const addParty = useCallback(async (partyData) => {
     try {
       const token = authService.getToken();
+      
+      // ✅ CHECK AUTH TOKEN  
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+      
       const response = await fetch('http://localhost:3001/api/waitlist', {
         method: 'POST',
         headers: {
@@ -141,6 +186,12 @@ export const useDashboard = () => {
   const updateParty = useCallback(async (partyId, updateData) => {
     try {
       const token = authService.getToken();
+      
+      // ✅ CHECK AUTH TOKEN
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+      
       const response = await fetch(`http://localhost:3001/api/waitlist/${partyId}`, {
         method: 'PATCH',
         headers: {
@@ -168,6 +219,12 @@ export const useDashboard = () => {
   const removeParty = useCallback(async (partyId) => {
     try {
       const token = authService.getToken();
+      
+      // ✅ CHECK AUTH TOKEN
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+      
       const response = await fetch(`http://localhost:3001/api/waitlist/${partyId}`, {
         method: 'DELETE',
         headers: {
@@ -195,6 +252,12 @@ export const useDashboard = () => {
   const seatManually = useCallback(async (tableNumber, partySize) => {
     try {
       const token = authService.getToken();
+      
+      // ✅ CHECK AUTH TOKEN
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+      
       const response = await fetch(`http://localhost:3001/api/seating/manual/${tableNumber}`, {
         method: 'PUT',
         headers: {
