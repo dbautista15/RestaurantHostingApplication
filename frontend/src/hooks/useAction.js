@@ -104,7 +104,20 @@ export const useActions = () => {
         method: 'PUT',
         body: JSON.stringify({ newState, ...metadata })
       });
-    }, [apiCall])
+    }, [apiCall]),
+	  handleClick: useCallback(async (tableId, metadata = {}) => {
+    return apiCall(`/tables/${tableId}/click`, {
+      method: 'POST',
+      body: JSON.stringify(metadata)
+    });
+  }, [apiCall]),
+  
+  handleDrop: useCallback(async (tableId, position) => {
+    return apiCall(`/tables/${tableId}/drop`, {
+      method: 'POST',
+      body: JSON.stringify(position)
+    });
+  }, [apiCall])
   };
 
   // 🎯 SHIFT Actions

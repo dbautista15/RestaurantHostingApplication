@@ -1,15 +1,13 @@
-// src/components/seating/MatrixDisplay.jsx
+// src/components/seating/MatrixDisplay.jsx - NO SHIFT CONTEXT NEEDED
 import React from 'react';
-import { useShift } from '../../context/ShiftContext'; // ✅ Import shift context
 
-export const MatrixDisplay = ({ matrix, waiters }) => {
-  const { shiftData } = useShift(); // ✅ Get shift data
+export const MatrixDisplay = ({ matrix, waiters, fairnessScore }) => {
   const partySizeLabels = ['1s', '2s', '3s', '4s', '5s', '6+'];
   
-  // ✅ Use actual waiters from shift context if available, fallback to props
-  const activeWaiters = shiftData.serverOrder || waiters || [];
+  // 🎯 CHANGE: Just use waiters prop directly - it already comes from backend!
+  // No need for shiftData because dashboard provides the active waiters
   
-  if (activeWaiters.length === 0) {
+  if (!waiters || waiters.length === 0) {
     return (
       <div className="bg-white p-4 rounded-lg border">
         <h3 className="font-semibold mb-3">Fairness Dashboard</h3>
@@ -24,8 +22,7 @@ export const MatrixDisplay = ({ matrix, waiters }) => {
     <div className="bg-white p-4 rounded-lg border">
       <h3 className="font-semibold mb-3">Fairness Dashboard</h3>
       <div className="text-xs text-gray-600 mb-2">
-        {/* ✅ Show shift info */}
-        {activeWaiters.length} servers working tonight
+        {waiters.length} servers working tonight
       </div>
       
       <div className="overflow-x-auto">
@@ -40,14 +37,13 @@ export const MatrixDisplay = ({ matrix, waiters }) => {
             </tr>
           </thead>
           <tbody>
-            {/* ✅ Use activeWaiters instead of props.waiters */}
-            {activeWaiters.map((waiter, waiterIndex) => {
+            {waiters.map((waiter, waiterIndex) => {
               const total = matrix[waiterIndex]?.reduce((a, b) => a + b, 0) || 0;
               
               return (
                 <tr key={waiter.id} className="border-t">
                   <td className="p-1 font-medium">
-                    {/* ✅ Show actual waiter name instead of just W{id} */}
+                    {/* 🎯 Waiter display - backend provides the name */}
                     {waiter.name} (S{waiter.section})
                   </td>
                   {matrix[waiterIndex]?.map((count, sizeIndex) => (
@@ -76,28 +72,17 @@ export const MatrixDisplay = ({ matrix, waiters }) => {
         </table>
       </div>
       
-      {/* ✅ Add fairness indicator */}
+      {/* 🎯 Fairness Score - Now passed as prop from backend */}
       <div className="mt-3 pt-3 border-t border-gray-200">
         <div className="text-xs text-gray-600">
-          Fairness Score: {/* Calculate based on variance in totals */}
-          {(() => {
-            const totals = activeWaiters.map((_, index) => 
-              matrix[index]?.reduce((a, b) => a + b, 0) || 0
-            );
-            const avg = totals.reduce((a, b) => a + b, 0) / totals.length;
-            const variance = totals.reduce((sum, total) => sum + Math.pow(total - avg, 2), 0) / totals.length;
-            const fairnessScore = Math.max(0, 100 - Math.round(variance * 10));
-            
-            return (
-              <span className={`font-medium ${
-                fairnessScore >= 80 ? 'text-green-600' :
-                fairnessScore >= 60 ? 'text-yellow-600' :
-                'text-red-600'
-              }`}>
-                {fairnessScore}/100
-              </span>
-            );
-          })()}
+          Fairness Score: 
+          <span className={`font-medium ml-1 ${
+            fairnessScore >= 80 ? 'text-green-600' :
+            fairnessScore >= 60 ? 'text-yellow-600' :
+            'text-red-600'
+          }`}>
+            {fairnessScore}/100
+          </span>
         </div>
       </div>
     </div>

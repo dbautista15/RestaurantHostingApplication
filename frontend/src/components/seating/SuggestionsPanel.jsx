@@ -8,6 +8,7 @@ export const SuggestionsPanel = ({
   matrix,
   waiters,
   onAssignParty,
+  fairnessScore,
   onConfirmSeating,
   onCancelAssignment 
 }) => {
@@ -32,7 +33,8 @@ export const SuggestionsPanel = ({
 
         {/* Fairness Matrix */}
         {waiters.length > 0 && (
-          <MatrixDisplay matrix={matrix} waiters={waiters} />
+          <MatrixDisplay matrix={matrix} waiters={waiters} fairnessScore={fairnessScore}  // ← Add this too!
+/>
         )}
       </div>
     </div>

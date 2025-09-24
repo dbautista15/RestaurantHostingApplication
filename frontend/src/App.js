@@ -1,14 +1,13 @@
-import React from 'react';
+// src/App.js - NO MORE SHIFT CONTEXT
+import React, { useState } from 'react';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { LoginScreen } from './components/auth/LoginScreen';
 import { useAuth } from './hooks/useAuth';
-import { ShiftProvider, useShift } from './context/ShiftContext';
 import ShiftSetup from './components/ShiftSetup';
 
-// Inner component that can safely use hooks
-const AppContent = () => {
+const App = () => {
   const { user, isAuthenticated, login, logout, loading } = useAuth();
-  const { shiftData } = useShift(); // Now always called, not conditionally
+  const [needsShiftSetup, setNeedsShiftSetup] = useState(false);
 
   // Show loading spinner while checking auth
   if (loading) {
@@ -27,20 +26,25 @@ const AppContent = () => {
     return <LoginScreen onLogin={login} />;
   }
 
-  // Authenticated - check if shift setup is needed
-  if (user?.role === 'host' && !shiftData.isShiftSetup) {
-    return <ShiftSetup />;
+  // Show shift setup if needed
+  if (needsShiftSetup) {
+    return (
+      <ShiftSetup 
+        onComplete={() => {
+          setNeedsShiftSetup(false);
+          // Dashboard will refresh and get new shift data
+        }} 
+      />
+    );
   }
 
-  return <Dashboard user={user} onLogout={logout} />;
-};
-
-// Main App component with providers
-const App = () => {
+  // Main dashboard - it will check if shift is configured
   return (
-    <ShiftProvider>
-      <AppContent />
-    </ShiftProvider>
+    <Dashboard 
+      user={user} 
+      onLogout={logout}
+      onNeedShiftSetup={() => setNeedsShiftSetup(true)}
+    />
   );
 };
 

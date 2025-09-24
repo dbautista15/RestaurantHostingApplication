@@ -34,7 +34,7 @@ const DashboardError = ({ error, onRetry }) => (
   </div>
 );
 
-export const Dashboard = ({ user, onLogout }) => {
+export const Dashboard = ({ user, onLogout,onNeedShiftSetup }) => {
   const floorPlanRef = useRef(null);
   const { seating, tables: tableActions } = useActions();
   
@@ -49,6 +49,7 @@ export const Dashboard = ({ user, onLogout }) => {
     fairnessScore,
     loading,
     error,
+    shift,
     seatParty,
     addParty,
     updateParty,
@@ -56,7 +57,18 @@ export const Dashboard = ({ user, onLogout }) => {
     restoreParty,
     clearRecentlySeated,
     refresh
+    
   } = useDashboard();
+  
+  // 🎯 Check if shift setup is needed
+  React.useEffect(() => {
+    if (!loading && !error && user?.role === 'host') {
+      // Backend tells us if shift is configured
+      if (!shift?.isConfigured) {
+        onNeedShiftSetup();
+      }
+    }
+  }, [loading, error, shift, user, onNeedShiftSetup]);
 
   if (error) return <DashboardError error={error} onRetry={refresh} />;
   if (loading) return <DashboardSkeleton />;

@@ -137,6 +137,19 @@ router.get('/stats', authenticateToken, async (req, res) => {
       error: 'Failed to fetch table statistics' 
     });
   }
+
+});
+// Add to backend/routes/tables.js
+router.post('/:tableId/click', authenticateToken, async (req, res) => {
+  const { tableId } = req.params;
+  const { partySize } = req.body;
+  // Use floorPlanService.handleTableClick()
+});
+
+router.post('/:tableId/drop', authenticateToken, async (req, res) => {
+  const { tableId } = req.params;
+  const { x, y } = req.body;
+  // Use floorPlanService.handleTableDrop()
 });
 
 module.exports = router;
