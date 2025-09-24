@@ -1,4 +1,4 @@
-// frontend/src/hooks/useActions.js - SINGLE API INTERFACE
+// frontend/src/hooks/useAction.js - COMPLETE VERSION
 import { useCallback } from 'react';
 
 const API_BASE = 'http://localhost:3001/api';
@@ -89,7 +89,7 @@ export const useActions = () => {
     }, [apiCall])
   };
 
-  // 🎯 TABLE Actions
+  // 🎯 TABLE Actions (UPDATED with new endpoints)
   const tableActions = {
     getAll: useCallback(async () => {
       return apiCall('/tables');
@@ -105,19 +105,27 @@ export const useActions = () => {
         body: JSON.stringify({ newState, ...metadata })
       });
     }, [apiCall]),
-	  handleClick: useCallback(async (tableId, metadata = {}) => {
-    return apiCall(`/tables/${tableId}/click`, {
-      method: 'POST',
-      body: JSON.stringify(metadata)
-    });
-  }, [apiCall]),
-  
-  handleDrop: useCallback(async (tableId, position) => {
-    return apiCall(`/tables/${tableId}/drop`, {
-      method: 'POST',
-      body: JSON.stringify(position)
-    });
-  }, [apiCall])
+    
+    // 🎯 NEW: Handle table clicks (backend decides action)
+    handleClick: useCallback(async (tableId, metadata = {}) => {
+      return apiCall(`/tables/${tableId}/click`, {
+        method: 'POST',
+        body: JSON.stringify(metadata)
+      });
+    }, [apiCall]),
+    
+    // 🎯 NEW: Handle table drops (position changes)
+    handleDrop: useCallback(async (tableId, position) => {
+      return apiCall(`/tables/${tableId}/drop`, {
+        method: 'POST',
+        body: JSON.stringify(position)
+      });
+    }, [apiCall]),
+    
+    // 🎯 NEW: Get available actions for a table
+    getActions: useCallback(async (tableId) => {
+      return apiCall(`/tables/${tableId}/actions`);
+    }, [apiCall])
   };
 
   // 🎯 SHIFT Actions
@@ -162,7 +170,7 @@ export const useActions = () => {
     }, [apiCall])
   };
 
-  // 🎯 AUTH Actions (Simplified)
+  // 🎯 AUTH Actions
   const authActions = {
     login: useCallback(async (clockInNumber, password) => {
       // Don't use apiCall here since we don't have token yet
@@ -201,10 +209,17 @@ export const useActions = () => {
 
     validateToken: useCallback(async () => {
       return apiCall('/auth/me');
+    }, [apiCall]),
+    
+    changePassword: useCallback(async (currentPassword, newPassword) => {
+      return apiCall('/auth/change-password', {
+        method: 'PUT',
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
     }, [apiCall])
   };
 
-  // 🎯 DEMO Actions (Moving from components)
+  // 🎯 DEMO Actions
   const demoActions = {
     populateWaitlist: useCallback(async () => {
       return apiCall('/demo/populate-waitlist', { method: 'POST' });
@@ -226,31 +241,3 @@ export const useActions = () => {
   };
 };
 
-/*
-🎯 USAGE IN COMPONENTS:
-
-// Replace complex service imports
-const { waitlist, seating, dashboard } = useActions();
-
-// Simple calls
-await waitlist.add(partyData);
-await seating.seatManually(tableNumber, partySize);
-const data = await dashboard.load();
-
-BENEFITS:
-✅ Single hook instead of multiple services
-✅ Consistent error handling  
-✅ Auto token management
-✅ TypeScript-ready structure
-✅ Easy to mock for testing
-✅ Central API configuration
-
-REPLACES:
-❌ authService calls scattered everywhere
-❌ fetch() calls with manual headers
-❌ Multiple service files
-❌ Inconsistent error handling
-❌ Token management in components
-
-RESULT: Single interface for all backend communication!
-*/

@@ -1,4 +1,4 @@
-// frontend/src/components/dashboard/Dashboard.jsx - UPDATED VERSION
+// frontend/src/components/dashboard/Dashboard.jsx - COMPLETE UPDATE
 import React, { useRef } from 'react';
 import { useDashboard } from '../../hooks/useDashboard';
 import { WaitlistPanel } from '../waitlist/WaitlistPanel';
@@ -7,7 +7,7 @@ import { SuggestionsPanel } from '../seating/SuggestionsPanel';
 import { ThreePanelLayout, LeftPanel, CenterPanel, RightPanel } from '../shared/ThreePanelLayout';
 import { useActions } from '../../hooks/useAction';
 
-// Loading and Error components remain the same
+// Loading and Error components (unchanged)
 const DashboardSkeleton = () => (
   <div className="h-screen bg-gray-50 flex items-center justify-center">
     <div className="text-center">
@@ -34,11 +34,10 @@ const DashboardError = ({ error, onRetry }) => (
   </div>
 );
 
-export const Dashboard = ({ user, onLogout,onNeedShiftSetup }) => {
+export const Dashboard = ({ user, onLogout, onNeedShiftSetup }) => {
   const floorPlanRef = useRef(null);
-  const { seating, tables: tableActions } = useActions();
+  const { tables: tableActions } = useActions(); // 🎯 Get table actions
   
-  // 🎯 Still using single dashboard hook - no change needed!
   const {
     waitlist,
     tables,
@@ -49,7 +48,7 @@ export const Dashboard = ({ user, onLogout,onNeedShiftSetup }) => {
     fairnessScore,
     loading,
     error,
-    shift,
+    shift, // 🎯 NEW: Get shift data
     seatParty,
     addParty,
     updateParty,
@@ -57,13 +56,11 @@ export const Dashboard = ({ user, onLogout,onNeedShiftSetup }) => {
     restoreParty,
     clearRecentlySeated,
     refresh
-    
   } = useDashboard();
-  
+
   // 🎯 Check if shift setup is needed
   React.useEffect(() => {
     if (!loading && !error && user?.role === 'host') {
-      // Backend tells us if shift is configured
       if (!shift?.isConfigured) {
         onNeedShiftSetup();
       }
@@ -73,20 +70,24 @@ export const Dashboard = ({ user, onLogout,onNeedShiftSetup }) => {
   if (error) return <DashboardError error={error} onRetry={refresh} />;
   if (loading) return <DashboardSkeleton />;
 
-  // 🎯 NEW: Floor plan interaction handlers (backend decides everything)
+  // 🎯 IMPLEMENT Table Click Handler
   const handleTableClick = async (tableId, metadata = {}) => {
     try {
-      // 🎯 WHY: Backend decides what clicking means
       const result = await tableActions.handleClick(tableId, metadata);
       
       if (result.success) {
-        // Optional: Show visual feedback
+        // Show visual feedback
         if (floorPlanRef.current) {
           floorPlanRef.current.highlightTable(tableId);
         }
         
-        // Refresh to get updated state
-        await refresh();
+        // Show success message (you could add a toast here)
+        console.log(result.message);
+        
+        // Refresh dashboard to get updated state
+        if (result.requiresRefresh) {
+          await refresh();
+        }
       }
     } catch (error) {
       console.error('Table click failed:', error);
@@ -96,30 +97,32 @@ export const Dashboard = ({ user, onLogout,onNeedShiftSetup }) => {
     }
   };
 
+  // 🎯 IMPLEMENT Table Drop Handler
   const handleTableDrop = async (tableId, position) => {
     try {
-      // 🎯 WHY: Backend validates if drop is allowed
       const result = await tableActions.handleDrop(tableId, position);
       
       if (result.success) {
+        console.log(result.message);
         await refresh();
-      } else {
-        // Revert visual position
+      } else if (result.revertPosition) {
+        // Position was invalid, refresh to revert
         await refresh();
       }
     } catch (error) {
       console.error('Table drop failed:', error);
-      await refresh(); // Revert to server state
+      // Revert to server state on error
+      await refresh();
     }
   };
 
+  // 🎯 Check if party size modal needed
   const checkNeedsPartySize = (tableId) => {
-    // 🎯 WHY: Let backend decide but we can make a guess for UX
     const table = tables.find(t => t.id === tableId);
+    // Backend data tells us if clickable and what state
     return table?.state === 'available';
   };
 
-  // 🎯 Existing handlers remain mostly the same
   const handleSeatParty = async (partyId) => {
     try {
       const result = await seatParty(partyId);
@@ -129,7 +132,7 @@ export const Dashboard = ({ user, onLogout,onNeedShiftSetup }) => {
     }
   };
 
-  // Business metrics calculation stays the same
+  // Calculate business metrics
   const businessMetrics = {
     totalTablesServed: tables.filter(t => t.state === 'occupied').length,
     fairnessScore: fairnessScore,
@@ -148,7 +151,6 @@ export const Dashboard = ({ user, onLogout,onNeedShiftSetup }) => {
       waitlistCount={waitlist.length}
       businessMetrics={businessMetrics}
     >
-      {/* LEFT PANEL: Waitlist - No changes needed */}
       <LeftPanel>
         <WaitlistPanel
           waitlist={waitlist}
@@ -162,19 +164,17 @@ export const Dashboard = ({ user, onLogout,onNeedShiftSetup }) => {
         />
       </LeftPanel>
 
-      {/* 🎯 CENTER PANEL: Floor Plan - Now truly presentation only */}
       <CenterPanel>
         <FloorPlanView 
           ref={floorPlanRef}
           tables={tables}
-          gridConfig={{ size: 30, cols: 22, rows: 18 }} // Could come from backend
-          onTableClick={handleTableClick}
-          onTableDrop={handleTableDrop}
+          gridConfig={{ size: 30, cols: 22, rows: 18 }}
+          onTableClick={handleTableClick} // 🎯 Now implemented!
+          onTableDrop={handleTableDrop}   // 🎯 Now implemented!
           onRequestPartySize={checkNeedsPartySize}
         />
       </CenterPanel>
 
-      {/* RIGHT PANEL: Suggestions - No changes needed */}
       <RightPanel>
         <SuggestionsPanel
           suggestions={suggestions}
@@ -187,24 +187,3 @@ export const Dashboard = ({ user, onLogout,onNeedShiftSetup }) => {
     </ThreePanelLayout>
   );
 };
-
-/**
- * 🎯 WHAT CHANGED:
- * 
- * 1. FLOOR PLAN HANDLERS
- *    - onTableClick: Just passes click to backend
- *    - onTableDrop: Backend validates position
- *    - onRequestPartySize: Simple check, backend decides
- * 
- * 2. NO BUSINESS LOGIC
- *    - No state transitions
- *    - No validation
- *    - No assignment calculations
- * 
- * 3. BACKEND COMMUNICATION
- *    - Every action goes to backend
- *    - Always refresh after changes
- *    - Backend is source of truth
- * 
- * The Dashboard remains clean and simple!
- */

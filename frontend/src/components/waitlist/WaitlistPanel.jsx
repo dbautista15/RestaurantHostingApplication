@@ -1,25 +1,23 @@
-// src/components/waitlist/WaitlistPanel.jsx
+// frontend/src/components/waitlist/WaitlistPanel.jsx - COMPLETE UPDATED VERSION
 import React, { useState } from 'react';
 import { WaitlistEntry } from './WaitlistEntry';
 import { AddPartyModal } from './AddPartyModal';
-import { useActions } from '../../hooks/useAction'; // ✅ Fixed import path
+import { useActions } from '../../hooks/useAction'; // ✅ Import useActions
 
 export const WaitlistPanel = ({ 
   waitlist, 
   onAddParty, 
-  onStatusChange, 
+  onSeatParty,  // Using onSeatParty instead of onStatusChange
   onRemove,
   onUpdate,
-  // ✅ NEW: Recently seated props
   recentlySeated = [],
   onRestoreParty,
   onClearRecentlySeated
 }) => {
   const [showAddModal, setShowAddModal] = useState(false);
-  // Backend already sorts by priority, so just use waitlist directly
-  const { demo } = useActions();
+  const { demo } = useActions(); // ✅ Get demo actions
 
-  // ✅ NEW: Helper to format time since seated
+  // ✅ Helper to format time since seated
   const getTimeSinceSeated = (seatedAt) => {
     const minutes = Math.floor((Date.now() - new Date(seatedAt)) / (1000 * 60));
     if (minutes < 1) return 'just now';
@@ -27,7 +25,7 @@ export const WaitlistPanel = ({
     return `${minutes} min ago`;
   };
 
-  // ✅ NEW: Handle restore with user feedback
+  // ✅ Handle restore with user feedback
   const handleRestore = async (partyId) => {
     try {
       const result = await onRestoreParty(partyId);
@@ -40,14 +38,24 @@ export const WaitlistPanel = ({
     }
   };
 
-  // ✅ SIMPLIFIED: Just call backend
+  // ✅ UPDATED: Use demo action from useActions
   const populateDemoData = async () => {
     try {
       await demo.populateWaitlist();
       // Dashboard will auto-refresh with new data
+      // No need to manually update state!
     } catch (error) {
       console.error('Failed to populate demo data:', error);
+      // Could add toast notification here
     }
+  };
+
+  // ✅ Handle status change for waitlist entries
+  const handleStatusChange = (partyId, newStatus) => {
+    if (newStatus === 'seated') {
+      onSeatParty(partyId);
+    }
+    // Could handle other status changes here if needed
   };
 
   return (
@@ -61,12 +69,12 @@ export const WaitlistPanel = ({
           </span>
         </div>
         
-        {/* Demo Button */}
+        {/* Demo Button - ✅ Now using useActions */}
         <button
           onClick={populateDemoData}
           className="w-full bg-gray-500 text-white py-1 px-3 rounded text-sm mb-2 hover:bg-gray-600 transition-colors"
         >
-          🎭 Load Demo Data (with Special Requests)
+          🎭 Load Demo Data
         </button>
         
         <button
@@ -94,7 +102,7 @@ export const WaitlistPanel = ({
               <WaitlistEntry
                 key={entry._id}
                 entry={entry}
-                onStatusChange={onStatusChange}
+                onStatusChange={handleStatusChange}
                 onRemove={onRemove}
                 onUpdate={onUpdate}
               />
@@ -102,7 +110,7 @@ export const WaitlistPanel = ({
           )}
         </div>
 
-        {/* ✅ NEW: Recently Seated Section */}
+        {/* ✅ Recently Seated Section */}
         {recentlySeated.length > 0 && (
           <div className="border-t border-gray-300 bg-gray-100">
             <div className="p-4 pb-2">
@@ -144,7 +152,7 @@ export const WaitlistPanel = ({
                           <span>✅ Seated {getTimeSinceSeated(party.seatedAt)}</span>
                           {party.specialRequests && (
                             <span className="text-yellow-600" title={party.specialRequests}>
-                              ⭐
+                              ⭐ Special requests
                             </span>
                           )}
                         </div>
@@ -178,7 +186,7 @@ export const WaitlistPanel = ({
       <div className="p-4 bg-white border-t border-gray-200">
         <div className="grid grid-cols-4 gap-4 text-center">
           <div>
-            <div className="text-lg font-bold text-green-600">
+            <div className="text-lg font-bold text-purple-600">
               {waitlist.filter(p => p.priority === 'coworker').length}
             </div>
             <div className="text-xs text-gray-600">Staff</div>
@@ -190,12 +198,12 @@ export const WaitlistPanel = ({
             <div className="text-xs text-gray-600">Large</div>
           </div>
           <div>
-            <div className="text-lg font-bold text-purple-600">
+            <div className="text-lg font-bold text-blue-600">
               {waitlist.filter(p => p.specialRequests && p.specialRequests.trim()).length}
             </div>
             <div className="text-xs text-gray-600">Special</div>
           </div>
-          {/* ✅ NEW: Recently seated count */}
+          {/* ✅ Recently seated count */}
           <div>
             <div className="text-lg font-bold text-gray-600">
               {recentlySeated.length}
