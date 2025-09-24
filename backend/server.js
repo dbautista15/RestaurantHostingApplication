@@ -36,11 +36,15 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// API routes
-app.use('/api/auth', authRoutes);
-app.use('/api/tables', tableRoutes);
-app.use('/api/waitlist', waitlistRoutes);
-app.use('/api/shifts', shiftRoutes); // NEW: Add this line
+// ✅ CLEAN ROUTE STRUCTURE
+app.use('/api/auth', require('./routes/auth'));           // Authentication
+app.use('/api/waitlist', require('./routes/waitlist'));   // Waitlist CRUD
+app.use('/api/tables', require('./routes/tables'));       // Table read-only
+app.use('/api/shifts', require('./routes/shifts'));       // Shift management
+app.use('/api/seating', require('./routes/seating'));     // ALL seating operations
+app.use('/api/dashboard', require('./routes/dashboard')); // Dashboard data
+
+
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
