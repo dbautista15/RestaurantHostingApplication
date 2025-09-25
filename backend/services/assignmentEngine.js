@@ -52,10 +52,41 @@ class AssignmentEngine {
       User.find({
         role: "waiter",
         isActive: true,
+        shiftStart: { $ne: null },
         _id: { $nin: excludeWaiters },
       }).sort({ section: 1 }),
       SectionConfiguration.findOne({ isActive: true }),
     ]);
+
+    // DEBUG: Log what we found
+    console.log("=== ASSIGNMENT ENGINE DEBUG ===");
+    console.log("Party size:", partySize);
+    console.log("Available tables found:", availableTables.length);
+    console.log("Active waiters found:", activeWaiters.length);
+    console.log("Active config:", activeConfig?.shiftName || "NONE");
+
+    if (availableTables.length > 0) {
+      console.log(
+        "Tables:",
+        availableTables.map((t) => ({
+          number: t.tableNumber,
+          section: t.section,
+          capacity: t.capacity,
+          state: t.state,
+        }))
+      );
+    }
+
+    if (activeWaiters.length > 0) {
+      console.log(
+        "Waiters:",
+        activeWaiters.map((w) => ({
+          name: w.userName,
+          section: w.section,
+          shiftStart: w.shiftStart,
+        }))
+      );
+    }
 
     return {
       availableTables,
@@ -237,12 +268,25 @@ class AssignmentEngine {
 
   generateReason(partySize, waiter, matrix) {
     const partySizeIndex = this.getPartySizeIndex(partySize);
-    const count = matrix.matrix[waiter.index][partySizeIndex];
 
+    // Prefer the index we attached in selectBestWaiter
+    let rowIndex = waiter.matrixIndex;
+
+    // Fallback by ID (handles older callers/tests)
+    if (rowIndex === undefined && matrix?.waiterIdToIndex) {
+      const id = waiter?._id?.toString?.();
+      rowIndex = matrix.waiterIdToIndex[id];
+    }
+
+    // Last-resort guard: if no valid row, avoid crashing and give a generic reason
+    if (rowIndex === undefined || !matrix?.matrix?.[rowIndex]) {
+      return `${waiter.userName} is eligible (no fairness row found yet)`;
+    }
+
+    const count = matrix.matrix[rowIndex][partySizeIndex] ?? 0;
     if (count === 0) {
       return `${waiter.userName} hasn't had a ${partySize}-top yet today`;
     }
-
     return `${waiter.userName} has the fewest ${partySize}-tops (${count})`;
   }
 }

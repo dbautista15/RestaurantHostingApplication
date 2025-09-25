@@ -199,5 +199,131 @@ router.get("/fairness-matrix", authenticateToken, async (req, res) => {
     });
   }
 });
+router.get("/debug/system-state", authenticateToken, async (req, res) => {
+  try {
+    console.log("🔍 DEBUGGING SYSTEM STATE");
+
+    // 1. Check all tables
+    const allTables = await Table.find({});
+    console.log(
+      "📊 ALL TABLES:",
+      allTables.map((t) => ({
+        number: t.tableNumber,
+        state: t.state,
+        section: t.section,
+        capacity: t.capacity,
+        assignedWaiter: t.assignedWaiter,
+      }))
+    );
+
+    // 2. Check available tables (what assignment engine looks for)
+    const availableTables = await Table.find({
+      state: "available",
+      section: { $ne: null },
+    });
+    console.log(
+      "🟢 AVAILABLE TABLES:",
+      availableTables.map((t) => ({
+        number: t.tableNumber,
+        state: t.state,
+        section: t.section,
+        capacity: t.capacity,
+      }))
+    );
+
+    // 3. Check all waiters
+    const allWaiters = await User.find({ role: "waiter" });
+    console.log(
+      "👥 ALL WAITERS:",
+      allWaiters.map((w) => ({
+        name: w.userName,
+        section: w.section,
+        isActive: w.isActive,
+        shiftStart: w.shiftStart,
+        clockInNumber: w.clockInNumber,
+      }))
+    );
+
+    // 4. Check active waiters (what assignment engine looks for)
+    const activeWaiters = await User.find({
+      role: "waiter",
+      isActive: true,
+      shiftStart: { $ne: null },
+    });
+    console.log(
+      "🟢 ACTIVE WAITERS:",
+      activeWaiters.map((w) => ({
+        name: w.userName,
+        section: w.section,
+        clockInNumber: w.clockInNumber,
+      }))
+    );
+
+    // 5. Check shift configuration
+    const activeConfig = await SectionConfiguration.findOne({ isActive: true });
+    console.log(
+      "⚙️ ACTIVE SHIFT CONFIG:",
+      activeConfig
+        ? {
+            name: activeConfig.shiftName,
+            serverCount: activeConfig.serverCount,
+            sections: activeConfig.activeSections.map((s) => ({
+              number: s.sectionNumber,
+              tables: s.assignedTables,
+            })),
+          }
+        : "NO ACTIVE CONFIGURATION"
+    );
+
+    // 6. Check waitlist parties
+    const waitingParties = await WaitlistEntry.find({ partyStatus: "waiting" });
+    console.log(
+      "📋 WAITING PARTIES:",
+      waitingParties.map((p) => ({
+        name: p.partyName,
+        size: p.partySize,
+        id: p._id,
+      }))
+    );
+
+    res.json({
+      success: true,
+      debug: {
+        allTables: allTables.length,
+        availableTables: availableTables.length,
+        allWaiters: allWaiters.length,
+        activeWaiters: activeWaiters.length,
+        hasActiveConfig: !!activeConfig,
+        waitingParties: waitingParties.length,
+        details: {
+          allTables: allTables.map((t) => ({
+            number: t.tableNumber,
+            state: t.state,
+            section: t.section,
+            capacity: t.capacity,
+          })),
+          availableTables: availableTables.map((t) => ({
+            number: t.tableNumber,
+            section: t.section,
+            capacity: t.capacity,
+          })),
+          activeWaiters: activeWaiters.map((w) => ({
+            name: w.userName,
+            section: w.section,
+          })),
+          activeConfig: activeConfig
+            ? {
+                name: activeConfig.shiftName,
+                sections: activeConfig.activeSections,
+              }
+            : null,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("❌ Debug system state error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 module.exports = router;
