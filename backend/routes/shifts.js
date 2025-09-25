@@ -1,15 +1,15 @@
 // backend/routes/shifts.js
-const express = require('express');
-const Table = require('../models/Table');
-const SectionConfiguration = require('../models/SectionConfiguration');
-const User = require('../models/User');
-const { authenticateToken, requireRole } = require('../middleware/auth');
-const mongoose = require('mongoose');
+const express = require("express");
+const Table = require("../models/Table");
+const SectionConfiguration = require("../models/SectionConfiguration");
+const User = require("../models/User");
+const { authenticateToken, requireRole } = require("../middleware/auth");
+const mongoose = require("mongoose");
 const router = express.Router();
 
 /**
  * 🎯 SECTION CONFIGURATION MANAGEMENT
- * 
+ *
  * These endpoints manage dynamic table-to-section assignments
  * based on how many servers are working
  */
@@ -18,23 +18,23 @@ const router = express.Router();
  * GET /api/shifts/configurations
  * Get all available shift configurations
  */
-router.get('/configurations', authenticateToken, async (req, res) => {
+router.get("/configurations", authenticateToken, async (req, res) => {
   try {
-const configurations = await SectionConfiguration.find({})
-  .sort({ serverCount: 1 });
+    const configurations = await SectionConfiguration.find({}).sort({
+      serverCount: 1,
+    });
 
-    const activeConfig = configurations.find(c => c.isActive);
+    const activeConfig = configurations.find((c) => c.isActive);
 
     res.status(200).json({
       success: true,
       configurations,
       activeConfiguration: activeConfig,
-      count: configurations.length
+      count: configurations.length,
     });
-
   } catch (error) {
-    console.error('Error fetching configurations:', error);
-    res.status(500).json({ error: 'Failed to fetch shift configurations' });
+    console.error("Error fetching configurations:", error);
+    res.status(500).json({ error: "Failed to fetch shift configurations" });
   }
 });
 
@@ -43,154 +43,167 @@ const configurations = await SectionConfiguration.find({})
  * Activate a specific shift configuration
  * This reassigns all tables to sections based on the configuration
  */
-router.post('/activate', authenticateToken, requireRole(['host', 'manager']), async (req, res) => {
-  try {
-    const { configurationId } = req.body;
-    
-    if (!configurationId) {
-      return res.status(400).json({
-        error: 'Configuration ID is required'
-      });
-    }
+router.post(
+  "/activate",
+  authenticateToken,
+  requireRole(["host", "manager"]),
+  async (req, res) => {
+    try {
+      const { configurationId } = req.body;
 
-    // Find the configuration
-    const config = await SectionConfiguration.findById(configurationId);
-    if (!config) {
-      return res.status(404).json({
-        error: 'Configuration not found'
-      });
-    }
-
-    // Deactivate all other configurations
-    await SectionConfiguration.updateMany({}, { isActive: false });
-    
-    // Activate the selected configuration
-    config.isActive = true;
-    await config.save();
-
-    // Apply the configuration to tables
-    await applyConfigurationToTables(config);
-
-    // Get updated table data
-    const updatedTables = await Table.find({})
-      .populate('assignedWaiter', 'userName role section')
-      .sort({ section: 1, tableNumber: 1 });
-
-    // Broadcast the change via Socket.IO if available
-    const io = req.app.get('io');
-    if (io) {
-      io.emit('shift_configuration_changed', {
-        configurationName: config.shiftName,
-        serverCount: config.serverCount,
-        activeSections: config.activeSections.length,
-        timestamp: new Date(),
-        changedBy: {
-          id: req.user._id,
-          name: req.user.userName,
-          role: req.user.role
-        }
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: `Activated ${config.shiftName} configuration`,
-      activeConfiguration: config,
-      tables: updatedTables,
-      summary: {
-        totalTables: updatedTables.length,
-        activeTables: updatedTables.filter(t => t.section !== null).length,
-        sections: config.activeSections.length,
-        servers: config.serverCount
+      if (!configurationId) {
+        return res.status(400).json({
+          error: "Configuration ID is required",
+        });
       }
-    });
 
-  } catch (error) {
-    console.error('Error activating configuration:', error);
-    res.status(500).json({ error: 'Failed to activate configuration' });
-  }
-});
+      // Find the configuration
+      const config = await SectionConfiguration.findById(configurationId);
+      if (!config) {
+        return res.status(404).json({
+          error: "Configuration not found",
+        });
+      }
 
+      // Deactivate all other configurations
+      await SectionConfiguration.updateMany({}, { isActive: false });
 
-router.post('/setup-with-waiters', authenticateToken, requireRole(['host']), async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-  
-  try {
-    const { serverCount, orderedWaiters } = req.body;
-    
-    if (serverCount < 4 || serverCount > 7) {
-      return res.status(400).json({
-        error: 'Server count must be between 4 and 7'
+      // Activate the selected configuration
+      config.isActive = true;
+      await config.save();
+
+      // Apply the configuration to tables
+      await applyConfigurationToTables(config);
+
+      // Get updated table data
+      const updatedTables = await Table.find({})
+        .populate("assignedWaiter", "userName role section")
+        .sort({ section: 1, tableNumber: 1 });
+
+      // Broadcast the change via Socket.IO if available
+      const io = req.app.get("io");
+      if (io) {
+        io.emit("shift_configuration_changed", {
+          configurationName: config.shiftName,
+          serverCount: config.serverCount,
+          activeSections: config.activeSections.length,
+          timestamp: new Date(),
+          changedBy: {
+            id: req.user._id,
+            name: req.user.userName,
+            role: req.user.role,
+          },
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: `Activated ${config.shiftName} configuration`,
+        activeConfiguration: config,
+        tables: updatedTables,
+        summary: {
+          totalTables: updatedTables.length,
+          activeTables: updatedTables.filter((t) => t.section !== null).length,
+          sections: config.activeSections.length,
+          servers: config.serverCount,
+        },
       });
+    } catch (error) {
+      console.error("Error activating configuration:", error);
+      res.status(500).json({ error: "Failed to activate configuration" });
     }
+  }
+);
 
-    // Find the best configuration
-    const config = await SectionConfiguration.findOne({ 
-      serverCount: { $lte: serverCount }
-    }).sort({ serverCount: -1 }).session(session);
+router.post(
+  "/setup-with-waiters",
+  authenticateToken,
+  requireRole(["host"]),
+  async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-    if (!config) {
-      throw new Error('No configuration available');
-    }
+    try {
+      const { serverCount, orderedWaiters } = req.body;
 
-    // Deactivate all configs
-    await SectionConfiguration.updateMany({}, { isActive: false }, { session });
-    
-    // Activate selected
-    config.isActive = true;
-    await config.save({ session });
+      if (serverCount < 4 || serverCount > 7) {
+        return res.status(400).json({
+          error: "Server count must be between 4 and 7",
+        });
+      }
 
-    // Apply to tables
-    await applyConfigurationToTables(config);
+      // Find the best configuration
+      const config = await SectionConfiguration.findOne({
+        serverCount: { $lte: serverCount },
+      })
+        .sort({ serverCount: -1 })
+        .session(session);
 
-    // Update each waiter's section
-    for (const assignment of orderedWaiters) {
-      await User.findByIdAndUpdate(
-        assignment.waiterId,
-        { section: assignment.section },
+      if (!config) {
+        throw new Error("No configuration available");
+      }
+
+      // Deactivate all configs
+      await SectionConfiguration.updateMany(
+        {},
+        { isActive: false },
         { session }
       );
+
+      // Activate selected
+      config.isActive = true;
+      await config.save({ session });
+
+      // Apply to tables
+      await applyConfigurationToTables(config);
+
+      // Update each waiter's section
+      for (const assignment of orderedWaiters) {
+        await User.findByIdAndUpdate(
+          assignment.waiterId,
+          { section: assignment.section },
+          { session }
+        );
+      }
+
+      await session.commitTransaction();
+
+      res.json({
+        success: true,
+        message: `Shift started with ${serverCount} servers`,
+        configuration: config.shiftName,
+      });
+    } catch (error) {
+      await session.abortTransaction();
+      console.error("Shift setup error:", error);
+      res.status(500).json({ error: "Failed to setup shift" });
+    } finally {
+      session.endSession();
     }
-
-    await session.commitTransaction();
-
-    res.json({
-      success: true,
-      message: `Shift started with ${serverCount} servers`,
-      configuration: config.shiftName
-    });
-
-  } catch (error) {
-    await session.abortTransaction();
-    console.error('Shift setup error:', error);
-    res.status(500).json({ error: 'Failed to setup shift' });
-  } finally {
-    session.endSession();
   }
-});
-
+);
 
 /**
  * GET /api/shifts/active
  * Get the currently active shift configuration and affected tables
  */
-router.get('/active', authenticateToken, async (req, res) => {
+router.get("/active", authenticateToken, async (req, res) => {
   try {
-    const activeConfig = await SectionConfiguration.findOne({ isActive: true })
-      .populate( 'userName role');
+    const activeConfig = await SectionConfiguration.findOne({
+      isActive: true,
+    }).populate("userName role");
 
     if (!activeConfig) {
       return res.status(200).json({
         success: true,
         activeConfiguration: null,
-        message: 'No shift configuration is currently active'
+        message: "No shift configuration is currently active",
       });
     }
 
     // Get tables organized by the active configuration
     const tables = await Table.find({ section: { $ne: null } })
-      .populate('assignedWaiter', 'userName role section')
+      .populate("assignedWaiter", "userName role section")
       .sort({ section: 1, tableNumber: 1 });
 
     // Organize tables by section
@@ -203,18 +216,23 @@ router.get('/active', authenticateToken, async (req, res) => {
     }, {});
 
     // Get server assignments for each active section
-    const sectionSummary = activeConfig.activeSections.map(sectionConfig => {
+    const sectionSummary = activeConfig.activeSections.map((sectionConfig) => {
       const assignedTables = tablesBySection[sectionConfig.sectionNumber] || [];
-      const totalCapacity = assignedTables.reduce((sum, table) => sum + table.capacity, 0);
-      const occupiedTables = assignedTables.filter(t => t.state === 'occupied').length;
-      
+      const totalCapacity = assignedTables.reduce(
+        (sum, table) => sum + table.capacity,
+        0
+      );
+      const occupiedTables = assignedTables.filter(
+        (t) => t.state === "occupied"
+      ).length;
+
       return {
         sectionNumber: sectionConfig.sectionNumber,
         tableCount: assignedTables.length,
         totalCapacity,
         occupiedTables,
         serverCount: sectionConfig.serverCount,
-        tables: assignedTables
+        tables: assignedTables,
       };
     });
 
@@ -225,15 +243,14 @@ router.get('/active', authenticateToken, async (req, res) => {
       totalStats: {
         activeTables: tables.length,
         totalCapacity: tables.reduce((sum, t) => sum + t.capacity, 0),
-        occupiedTables: tables.filter(t => t.state === 'occupied').length,
+        occupiedTables: tables.filter((t) => t.state === "occupied").length,
         sections: activeConfig.activeSections.length,
-        servers: activeConfig.serverCount
-      }
+        servers: activeConfig.serverCount,
+      },
     });
-
   } catch (error) {
-    console.error('Error fetching active configuration:', error);
-    res.status(500).json({ error: 'Failed to fetch active configuration' });
+    console.error("Error fetching active configuration:", error);
+    res.status(500).json({ error: "Failed to fetch active configuration" });
   }
 });
 
@@ -242,61 +259,68 @@ router.get('/active', authenticateToken, async (req, res) => {
  * Quick setup based on server count
  * Automatically selects the best configuration for the number of servers working
  */
-router.post('/quick-setup', authenticateToken, requireRole(['host']), async (req, res) => {
-  try {
-    const { serverCount } = req.body;
-    
-    // ADD THESE DEBUG LINES:
-    console.log('=== QUICK SETUP DEBUG ===');
-    console.log('Requested server count:', serverCount);
-    
-    if (!serverCount || serverCount < 4 || serverCount > 10) {
-      return res.status(400).json({
-        error: 'Server count must be between 4 and 10'
+router.post(
+  "/quick-setup",
+  authenticateToken,
+  requireRole(["host"]),
+  async (req, res) => {
+    try {
+      const { serverCount } = req.body;
+
+      // ADD THESE DEBUG LINES:
+      console.log("=== QUICK SETUP DEBUG ===");
+      console.log("Requested server count:", serverCount);
+
+      if (!serverCount || serverCount < 4 || serverCount > 10) {
+        return res.status(400).json({
+          error: "Server count must be between 4 and 10",
+        });
+      }
+
+      // Find the best configuration for this server count
+      let bestConfig = await SectionConfiguration.findOne({
+        serverCount: { $lte: serverCount },
+      }).sort({ serverCount: -1 });
+
+      console.log("Found config:", bestConfig ? bestConfig.shiftName : "NONE");
+
+      if (!bestConfig) {
+        // If no configuration exists for this server count, use the 4-server config
+        bestConfig = await SectionConfiguration.findOne({ serverCount: 4 });
+        console.log(
+          "Fallback to 4-server config:",
+          bestConfig ? bestConfig.shiftName : "NONE"
+        );
+      }
+
+      if (!bestConfig) {
+        console.log("ERROR: No configurations found in database!");
+        return res.status(404).json({
+          error: "No shift configurations available. Please create one first.",
+        });
+      }
+
+      console.log("About to apply configuration:", bestConfig.shiftName);
+
+      // Apply the configuration
+      await SectionConfiguration.updateMany({}, { isActive: false });
+      bestConfig.isActive = true;
+      await bestConfig.save();
+      await applyConfigurationToTables(bestConfig);
+
+      console.log("Configuration applied successfully");
+
+      res.status(200).json({
+        success: true,
+        message: `Quick setup complete for ${serverCount} server(s)`,
+        appliedConfiguration: bestConfig.shiftName,
       });
+    } catch (error) {
+      console.error("Error with quick setup:", error);
+      res.status(500).json({ error: "Quick setup failed" });
     }
-
-    // Find the best configuration for this server count
-    let bestConfig = await SectionConfiguration.findOne({ 
-      serverCount: { $lte: serverCount }
-    }).sort({ serverCount: -1 });
-
-    console.log('Found config:', bestConfig ? bestConfig.shiftName : 'NONE');
-
-    if (!bestConfig) {
-      // If no configuration exists for this server count, use the 4-server config
-      bestConfig = await SectionConfiguration.findOne({ serverCount: 4 });
-      console.log('Fallback to 4-server config:', bestConfig ? bestConfig.shiftName : 'NONE');
-    }
-
-    if (!bestConfig) {
-      console.log('ERROR: No configurations found in database!');
-      return res.status(404).json({
-        error: 'No shift configurations available. Please create one first.'
-      });
-    }
-
-    console.log('About to apply configuration:', bestConfig.shiftName);
-    
-    // Apply the configuration
-    await SectionConfiguration.updateMany({}, { isActive: false });
-    bestConfig.isActive = true;
-    await bestConfig.save();
-    await applyConfigurationToTables(bestConfig);
-
-    console.log('Configuration applied successfully');
-
-    res.status(200).json({
-      success: true,
-      message: `Quick setup complete for ${serverCount} server(s)`,
-      appliedConfiguration: bestConfig.shiftName
-    });
-
-  } catch (error) {
-    console.error('Error with quick setup:', error);
-    res.status(500).json({ error: 'Quick setup failed' });
   }
-});
+);
 
 /**
  * Helper function to apply configuration to tables
@@ -304,55 +328,328 @@ router.post('/quick-setup', authenticateToken, requireRole(['host']), async (req
 async function applyConfigurationToTables(config, options = {}) {
   try {
     // ADD DEBUG LOGS TO THIS FUNCTION TOO
-    console.log('=== APPLYING CONFIGURATION TO TABLES ===');
-    console.log('Config name:', config.shiftName);
-    console.log('Active sections:', config.activeSections.length);
-    
+    console.log("=== APPLYING CONFIGURATION TO TABLES ===");
+    console.log("Config name:", config.shiftName);
+    console.log("Active sections:", config.activeSections.length);
+
     // Reset all tables to no section
-    const resetResult = await Table.updateMany({}, { 
-      section: null,
-      assignedWaiter: null,
-      partySize: null,
-      state: 'available' // Reset state when reconfiguring
-    });
-    
-    console.log('Reset tables result:', resetResult);
-    
+    const resetResult = await Table.updateMany(
+      {},
+      {
+        section: null,
+        assignedWaiter: null,
+        partySize: null,
+        state: "available", // Reset state when reconfiguring
+      }
+    );
+
+    console.log("Reset tables result:", resetResult);
+
     // Check what tables exist in database
-    const allTables = await Table.find({}, 'tableNumber');
-    console.log('Tables in database:', allTables.map(t => t.tableNumber));
+    const allTables = await Table.find({}, "tableNumber");
+    console.log(
+      "Tables in database:",
+      allTables.map((t) => t.tableNumber)
+    );
 
     // Apply the configuration
     for (const sectionConfig of config.activeSections) {
       let tablesToAssign = sectionConfig.assignedTables;
-      
-      console.log(`Assigning section ${sectionConfig.sectionNumber} these tables:`, tablesToAssign);
-      
+
+      console.log(
+        `Assigning section ${sectionConfig.sectionNumber} these tables:`,
+        tablesToAssign
+      );
+
       // Apply filters if specified
       if (!options.includePatioArea) {
-        tablesToAssign = tablesToAssign.filter(table => !table.startsWith('P'));
+        tablesToAssign = tablesToAssign.filter(
+          (table) => !table.startsWith("P")
+        );
       }
-      
+
       if (!options.includeBarArea) {
-        tablesToAssign = tablesToAssign.filter(table => !table.startsWith('B'));
+        tablesToAssign = tablesToAssign.filter(
+          (table) => !table.startsWith("B")
+        );
       }
-      
+
       if (tablesToAssign.length > 0) {
         const updateResult = await Table.updateMany(
           { tableNumber: { $in: tablesToAssign } },
           { section: sectionConfig.sectionNumber }
         );
-        
-        console.log(`Section ${sectionConfig.sectionNumber} update result:`, updateResult);
+
+        console.log(
+          `Section ${sectionConfig.sectionNumber} update result:`,
+          updateResult
+        );
       }
     }
-    
-    console.log('Table configuration complete');
+
+    console.log("Table configuration complete");
     return true;
   } catch (error) {
-    console.error('Error applying configuration to tables:', error);
+    console.error("Error applying configuration to tables:", error);
     throw error;
   }
+}
+// ADD THESE ROUTES TO YOUR EXISTING backend/routes/shifts.js FILE
+// Add at the bottom, before module.exports
+
+/**
+ * POST /api/shifts/add-waiter
+ * Add a waiter to the current shift and step up configuration
+ */
+router.post(
+  "/add-waiter",
+  authenticateToken,
+  requireRole(["host"]),
+  async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      const { clockInNumber, targetServerCount } = req.body;
+
+      if (!clockInNumber) {
+        return res.status(400).json({
+          success: false,
+          error: "Clock-in number is required",
+        });
+      }
+
+      // Find the waiter
+      const waiter = await User.findOne({
+        clockInNumber: clockInNumber.toUpperCase().trim(),
+        role: "waiter",
+        isActive: true,
+      }).session(session);
+
+      if (!waiter) {
+        return res.status(404).json({
+          success: false,
+          error: `Waiter ${clockInNumber} not found or not active`,
+        });
+      }
+
+      // Check if waiter is logged in (has shiftStart)
+      if (!waiter.shiftStart) {
+        return res.status(400).json({
+          success: false,
+          error: `Waiter ${clockInNumber} is not logged in`,
+        });
+      }
+
+      // Check if waiter is already assigned to a section
+      if (waiter.section !== null) {
+        return res.status(400).json({
+          success: false,
+          error: `${waiter.userName} is already working in section ${waiter.section}`,
+        });
+      }
+
+      // Check max limit
+      if (targetServerCount > 7) {
+        return res.status(400).json({
+          success: false,
+          error: "Maximum 7 waiters supported",
+        });
+      }
+
+      // Find next available section
+      const assignedSections = await User.find({
+        role: "waiter",
+        isActive: true,
+        section: { $ne: null },
+        shiftStart: { $ne: null },
+      })
+        .distinct("section")
+        .session(session);
+
+      let nextSection = 1;
+      while (assignedSections.includes(nextSection) && nextSection <= 7) {
+        nextSection++;
+      }
+
+      if (nextSection > 7) {
+        return res.status(400).json({
+          success: false,
+          error: "All sections are already assigned",
+        });
+      }
+
+      // Assign waiter to section
+      waiter.section = nextSection;
+      await waiter.save({ session });
+
+      // Step up to new configuration
+      const configName = getConfigName(targetServerCount);
+      const config = await SectionConfiguration.findOne({
+        shiftName: configName,
+      }).session(session);
+
+      if (config) {
+        // Deactivate all configs and activate new one
+        await SectionConfiguration.updateMany(
+          {},
+          { isActive: false },
+          { session }
+        );
+        config.isActive = true;
+        await config.save({ session });
+
+        // Apply configuration to tables
+        await applyConfigurationToTables(config);
+      }
+
+      await session.commitTransaction();
+
+      res.json({
+        success: true,
+        message: `${waiter.userName} added to section ${nextSection}`,
+        waiter: {
+          id: waiter._id,
+          userName: waiter.userName,
+          clockInNumber: waiter.clockInNumber,
+          section: waiter.section,
+        },
+        newConfiguration: configName,
+      });
+    } catch (error) {
+      await session.abortTransaction();
+      console.error("Add waiter error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to add waiter to shift",
+      });
+    } finally {
+      session.endSession();
+    }
+  }
+);
+
+/**
+ * POST /api/shifts/remove-waiter
+ * Remove a waiter from shift and step down configuration
+ */
+router.post(
+  "/remove-waiter",
+  authenticateToken,
+  requireRole(["host"]),
+  async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      const { waiterId, targetServerCount } = req.body;
+
+      if (!waiterId) {
+        return res.status(400).json({
+          success: false,
+          error: "Waiter ID is required",
+        });
+      }
+
+      // Check minimum limit
+      if (targetServerCount < 4) {
+        return res.status(400).json({
+          success: false,
+          error: "Minimum 4 waiters required",
+        });
+      }
+
+      // Find the waiter
+      const waiter = await User.findById(waiterId).session(session);
+      if (!waiter) {
+        return res.status(404).json({
+          success: false,
+          error: "Waiter not found",
+        });
+      }
+
+      if (waiter.section === null) {
+        return res.status(400).json({
+          success: false,
+          error: `${waiter.userName} is not currently assigned to a section`,
+        });
+      }
+
+      // Remove waiter from section
+      const removedSection = waiter.section;
+      waiter.section = null;
+      await waiter.save({ session });
+
+      // Clear any tables assigned to this waiter
+      await Table.updateMany(
+        { assignedWaiter: waiterId },
+        {
+          $unset: {
+            assignedWaiter: 1,
+            partySize: 1,
+            occupiedBy: 1,
+            assignedAt: 1,
+          },
+          state: "available",
+        },
+        { session }
+      );
+
+      // Step down to new configuration
+      const configName = getConfigName(targetServerCount);
+      const config = await SectionConfiguration.findOne({
+        shiftName: configName,
+      }).session(session);
+
+      if (config) {
+        // Deactivate all configs and activate new one
+        await SectionConfiguration.updateMany(
+          {},
+          { isActive: false },
+          { session }
+        );
+        config.isActive = true;
+        await config.save({ session });
+
+        // Apply configuration to tables
+        await applyConfigurationToTables(config);
+      }
+
+      await session.commitTransaction();
+
+      res.json({
+        success: true,
+        message: `${waiter.userName} removed from section ${removedSection}`,
+        waiter: {
+          id: waiter._id,
+          userName: waiter.userName,
+          clockInNumber: waiter.clockInNumber,
+          section: waiter.section,
+        },
+        newConfiguration: configName,
+      });
+    } catch (error) {
+      await session.abortTransaction();
+      console.error("Remove waiter error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to remove waiter from shift",
+      });
+    } finally {
+      session.endSession();
+    }
+  }
+);
+
+// Helper function to get configuration name based on server count
+function getConfigName(serverCount) {
+  const names = {
+    4: "four-servers",
+    5: "five-servers",
+    6: "six-servers",
+    7: "seven-servers", // You might need to create this config if it doesn't exist
+  };
+  return names[serverCount] || "six-servers"; // fallback
 }
 
 module.exports = router;

@@ -1,8 +1,15 @@
-// src/components/shared/ThreePanelLayout.jsx
+// frontend/src/components/shared/ThreePanelLayout.jsx - UPDATED WITH WAITER MANAGEMENT
 import React, { useState } from 'react';
 import { LAYOUT_CONFIG } from '../../config/constants';
 
-export const ThreePanelLayout = ({ children, user, onLogout, waitlistCount, businessMetrics }) => {
+export const ThreePanelLayout = ({ 
+  children, 
+  user, 
+  onLogout, 
+  waitlistCount, 
+  businessMetrics,
+  onShowWaiterManager // ✅ NEW PROP
+}) => {
   const [isOffline, setIsOffline] = useState(false);
   
   // Performance stats for demo
@@ -21,7 +28,7 @@ export const ThreePanelLayout = ({ children, user, onLogout, waitlistCount, busi
             <h1 className="text-xl font-bold text-gray-800">Smart Seater Host Dashboard</h1>
             <div className="flex items-center gap-6">
               <p className="text-sm text-gray-600">
-                Welcome back, {user.role} • {waitlistCount} parties waiting
+                Welcome back, {user.userName} ({user.role}) • {waitlistCount} parties waiting
               </p>
               
               {/* Business Impact Metrics */}
@@ -31,6 +38,10 @@ export const ThreePanelLayout = ({ children, user, onLogout, waitlistCount, busi
                   <span>⚖️ Fairness: {businessMetrics.fairnessScore}/100</span>
                   <span>💰 Tips: ${(businessMetrics.totalTablesServed * 35).toLocaleString()}</span>
                   <span>⏰ Avg Wait: {businessMetrics.avgWaitTime}min</span>
+                  {/* ✅ NEW: Show active waiter count */}
+                  {businessMetrics.activeWaiters && (
+                    <span>👥 Staff: {businessMetrics.activeWaiters}</span>
+                  )}
                 </div>
               )}
               
@@ -44,6 +55,17 @@ export const ThreePanelLayout = ({ children, user, onLogout, waitlistCount, busi
           </div>
           
           <div className="flex items-center gap-3">
+            {/* ✅ NEW: Waiter Management Button - Only show for hosts when callback provided */}
+            {onShowWaiterManager && user.role === 'host' && (
+              <button
+                onClick={onShowWaiterManager}
+                className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+                title="Manage waiters and sections"
+              >
+                👥 Manage Staff
+              </button>
+            )}
+            
             <button
               onClick={() => setIsOffline(!isOffline)}
               className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
