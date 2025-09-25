@@ -59,26 +59,23 @@ export const Dashboard = ({ user, onLogout, onNeedShiftSetup }) => {
     refresh
   } = useDashboard();
 
-// at the top of the component
+  // 🎯 CLEAN FIX: Extract shift check logic to avoid stale closure
+  const shiftIsConfigured = shift?.isConfigured;
+  
+  React.useEffect(() => {
+    // Don't run until initial data is settled
+    if (loading || error) return;
+    // Only hosts need the setup flow
+    if (user?.role !== 'host') return;
+    // Already prompted? bail
+    if (didPromptSetupRef.current) return;
 
-React.useEffect(() => {
-  // Don’t run until initial data is settled
-  if (loading || error) return;
-  // Only hosts need the setup flow
-  if (user?.role !== 'host') return;
-  // Already prompted? bail
-  if (didPromptSetupRef.current) return;
-
-  // Intentionally compute a primitive, but DO NOT add `shift` to deps below
-  const isConfigured = Boolean(shift && shift.isConfigured);
-
-  if (isConfigured === false) {
-    didPromptSetupRef.current = true;  // hard stop: never prompt again this mount
-    onNeedShiftSetup();                // triggers parent state/route change
-  }
-  // deps intentionally omit `shift` to avoid identity churn
-}, [loading, error, user, onNeedShiftSetup]);
-
+    // Check if shift is explicitly not configured (not null/undefined)
+    if (shiftIsConfigured === false) {
+      didPromptSetupRef.current = true;  // hard stop: never prompt again this mount
+      onNeedShiftSetup();                // triggers parent state/route change
+    }
+  }, [loading, error, user?.role, shiftIsConfigured, onNeedShiftSetup]);
 
   if (error) return <DashboardError error={error} onRetry={refresh} />;
   if (loading) return <DashboardSkeleton />;

@@ -335,30 +335,27 @@ export const FloorPlanView = React.forwardRef(({
         </div>
       </div>
 
-      🎯 SIMPLE Stats - All calculated by backend
+ {/* 🎯 SIMPLE Stats - All calculated by backend */}
       <div className="p-4 border-t border-gray-200 bg-gray-50">
         <div className="grid grid-cols-3 gap-4 text-center">
-          {Object.values(tables)
-            .reduce((acc, table) => {
-              if (table.stats) {
-                Object.entries(table.stats).forEach(([key, value]) => {
-                  if (!acc[key]) acc[key] = { value: 0, color: 'gray', label: key };
-                  acc[key].value += value;
-                  acc[key].color = table.stats.color || 'gray';
-                });
-              }
-              return acc;
-            }, {})
-            .slice(0, 3)
-            .map((stat, index) => (
-              <div key={index}>
-                <div className={`text-lg font-bold text-${stat.color}-600`}>
-                  {stat.value}
-                </div>
-                <div className="text-xs text-gray-600">{stat.label}</div>
-              </div>
-            ))
-          }
+          <div>
+            <div className="text-lg font-bold text-green-600">
+              {tables.filter(t => t.isActive && t.state === 'available').length}
+            </div>
+            <div className="text-xs text-gray-600">Available</div>
+          </div>
+          <div>
+            <div className="text-lg font-bold text-yellow-600">
+              {tables.filter(t => t.isActive && t.state === 'assigned').length}
+            </div>
+            <div className="text-xs text-gray-600">Assigned</div>
+          </div>
+          <div>
+            <div className="text-lg font-bold text-red-600">
+              {tables.filter(t => t.isActive && t.state === 'occupied').length}
+            </div>
+            <div className="text-xs text-gray-600">Occupied</div>
+          </div>
         </div>
       </div>
 

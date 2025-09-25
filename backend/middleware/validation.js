@@ -1,15 +1,6 @@
 // backend/middleware/validation.js
 const User = require('../models/User');
 
-/**
- * ✅ WHAT YOU DID RIGHT:
- * - Error accumulation pattern
- * - Input sanitization
- * - Conditional validation logic
- * - Business rule implementation
- * - Proper data flow back to req.body
- */
-
 const validateLogin = (req, res, next) => {
   const errors = [];
   
@@ -21,13 +12,16 @@ const validateLogin = (req, res, next) => {
   if (!clockInNumber) {
     errors.push({
       field: 'clockInNumber',
-      message: 'Clock number is required'
+      message: 'Clock-in number is required'
     });
   } else {
-    if (!/^\d{3,6}$/.test(clockInNumber)) {
+    // Updated regex to allow flexible formats: 
+    // - Pure numbers (1-6 digits): 1, 123, 9999
+    // - Letter + numbers: H001, W042
+    if (!/^[A-Z]?\d{1,6}$/.test(clockInNumber)) {
       errors.push({
         field: 'clockInNumber',
-        message: 'Clock-In number must be 3-6 digits'
+        message: 'Clock-in number must be 1-6 digits, optionally prefixed with a letter'
       });
     }
   }
@@ -38,25 +32,23 @@ const validateLogin = (req, res, next) => {
       message: 'Password is required'
     });
   } else {
-    // Security rule: minimum password length 
     if (password.length < 6) {
       errors.push({
         field: 'password',
-        message: 'Password must be at least 6 characters' // ✅ Fixed: "at least" not "atleast"
+        message: 'Password must be at least 6 characters'
       });
     }
   }
   
-  // If validation fails then return errors immediately
   if (errors.length > 0) {
-    return res.status(400).json({ // ✅ Fixed: status not stauts
+    return res.status(400).json({
       error: 'Validation failed',
       message: 'Please check your input and try again',
       details: errors
     });
   }
   
-  // Store the sanitized data back to req.body for downstream middleware
+  // Store the sanitized data back to req.body
   req.body.clockInNumber = clockInNumber;
   req.body.password = password;
   
@@ -66,21 +58,18 @@ const validateLogin = (req, res, next) => {
 const validateTableStateUpdate = (req, res, next) => {
   const errors = [];
   
-  // Define the valid table states for restaurant
-const VALID_STATES = ['available', 'assigned', 'occupied'];  
-  // Extract and sanitize inputs
+  const VALID_STATES = ['available', 'assigned', 'occupied'];  
+  
   const newState = req.body.newState ? req.body.newState.toString().trim().toLowerCase() : '';
   const waiterId = req.body.waiterId ? req.body.waiterId.toString().trim() : '';
   const partySize = req.body.partySize ? parseInt(req.body.partySize) : null;
   
-  // Validate newState is valid enum value
   if (!newState) {
     errors.push({
       field: 'newState',
       message: 'New state is required'
     });
   } else {
-    // Business rule: state must be from valid enum
     if (!VALID_STATES.includes(newState)) {
       errors.push({
         field: 'newState',
@@ -89,7 +78,6 @@ const VALID_STATES = ['available', 'assigned', 'occupied'];
     }
   }
   
-  // ✅ Fixed: "occupied" not "ocupied"
   if (newState === 'occupied') {
     if (!waiterId) {
       errors.push({
@@ -106,21 +94,6 @@ const VALID_STATES = ['available', 'assigned', 'occupied'];
     }
   }
   
-  // Conditional validation: if setting to reserved, might need future timestamp
-  if (newState === 'reserved') {
-    const reservationTime = req.body.reservationTime;
-    if (reservationTime) {
-      const reservationDate = new Date(reservationTime);
-      if (isNaN(reservationDate.getTime()) || reservationDate < new Date()) {
-        errors.push({
-          field: 'reservationTime',
-          message: 'Reservation time must be a valid future date'
-        });
-      }
-    }
-  }
-  
-  // If validation fails, return all the errors
   if (errors.length > 0) {
     return res.status(400).json({
       error: 'Validation failed',
@@ -129,8 +102,7 @@ const VALID_STATES = ['available', 'assigned', 'occupied'];
     });
   }
   
-  // Store the sanitized data
-  req.body.newState = newState; // ✅ Added: Store newState too!
+  req.body.newState = newState;
   if (waiterId) req.body.waiterId = waiterId;
   if (partySize) req.body.partySize = partySize;
   
@@ -140,24 +112,21 @@ const VALID_STATES = ['available', 'assigned', 'occupied'];
 const validateWaitlistEntry = (req, res, next) => {
   const errors = [];
   
-  // Extract and sanitize inputs
   const partyName = req.body.partyName ? req.body.partyName.toString().trim() : '';
   const partySize = req.body.partySize ? parseInt(req.body.partySize) : null;
   const phoneNumber = req.body.phoneNumber ? req.body.phoneNumber.toString().trim() : '';
   const specialRequests = req.body.specialRequests ? req.body.specialRequests.toString().trim() : '';
   
-  // Validate party name and size
   if (!partyName) {
     errors.push({
       field: 'partyName',
       message: 'Party name is required'
     });
   } else {
-    // Business rule: name length limits
     if (partyName.length < 2) {
       errors.push({
         field: 'partyName',
-        message: 'Party name must be at least 2 characters' // ✅ Fixed: "at least" not "atleast"
+        message: 'Party name must be at least 2 characters'
       });
     }
     if (partyName.length > 50) {
@@ -168,31 +137,28 @@ const validateWaitlistEntry = (req, res, next) => {
     }
   }
   
-  // Validation rule: party size is required and reasonable
   if (!partySize || partySize < 1) {
     errors.push({
       field: 'partySize',
-      message: 'Party size must be at least one person' // ✅ Fixed: "at least" not "atleast"
+      message: 'Party size must be at least one person'
     });
   } else if (partySize > 20) {
     errors.push({
       field: 'partySize',
-      message: 'Large parties (20+) require advance reservation' // ✅ Fixed: "advance" not "advanced"
+      message: 'Large parties (20+) require advance reservation'
     });
   }
   
-  // Optional validation: phone number format
   if (phoneNumber) {
     const phoneRegex = /^(\+1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})$/;
     if (!phoneRegex.test(phoneNumber)) {
       errors.push({
         field: 'phoneNumber',
-        message: 'Please enter a valid US phone number (e.g., 123-456-7890)' // ✅ Fixed: missing closing parenthesis
+        message: 'Please enter a valid US phone number (e.g., 123-456-7890)'
       });
     }
   }
   
-  // Validation rule: special requests length limit
   if (specialRequests && specialRequests.length > 200) {
     errors.push({
       field: 'specialRequests',
@@ -200,7 +166,6 @@ const validateWaitlistEntry = (req, res, next) => {
     });
   }
   
-  // If validation fails, return errors
   if (errors.length > 0) {
     return res.status(400).json({
       error: 'Validation failed',
@@ -209,7 +174,6 @@ const validateWaitlistEntry = (req, res, next) => {
     });
   }
   
-  // Store the sanitized data back to req.body
   req.body.partyName = partyName;
   req.body.partySize = partySize;
   if (phoneNumber) req.body.phoneNumber = phoneNumber;
@@ -223,33 +187,3 @@ module.exports = {
   validateTableStateUpdate,
   validateWaitlistEntry
 };
-
-/**
- * 🎯 WHAT YOU LEARNED EXCELLENTLY:
- * 
- * 1. ERROR ACCUMULATION PATTERN:
- *    ✅ You collect ALL errors before returning
- *    ✅ Users get complete feedback, not just first error
- * 
- * 2. INPUT SANITIZATION:
- *    ✅ trim() to remove whitespace
- *    ✅ toString() for type safety
- *    ✅ parseInt() for number conversion
- * 
- * 3. CONDITIONAL VALIDATION:
- *    ✅ Different rules for different table states
- *    ✅ Optional vs required field validation
- * 
- * 4. BUSINESS LOGIC ENCODING:
- *    ✅ Party size limits reflect restaurant capacity
- *    ✅ Clock number format matches your system
- *    ✅ Table states match your workflow
- * 
- * 5. DATA FLOW MANAGEMENT:
- *    ✅ Sanitized data flows to controllers
- *    ✅ Middleware chain works smoothly
- * 
- * 
- * These are tiny details that even experienced developers miss!
- * Your understanding of the concepts is solid.
- */

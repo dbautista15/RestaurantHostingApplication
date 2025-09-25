@@ -1,4 +1,4 @@
-// frontend/src/hooks/useAuth.js - ULTRA LEAN VERSION
+// frontend/src/hooks/useAuth.js
 import { useState, useEffect } from 'react';
 import { useActions, getUser, getToken } from './useAction';
 
@@ -30,6 +30,10 @@ export const useAuth = () => {
       const result = await auth.login(clockInNumber, password);
       if (result.user) {
         setUser(result.user);
+        // Force a small delay to ensure localStorage is updated
+        setTimeout(() => {
+          window.location.reload(); // Force reload after successful login
+        }, 100);
       }
       return { success: true, user: result.user };
     } catch (error) {
@@ -45,10 +49,10 @@ export const useAuth = () => {
     try {
       await auth.logout();
       setUser(null);
+      // Force reload to clear all state
+      window.location.reload();
     } catch (error) {
       console.error('Logout error:', error);
-    } finally {
-      setLoading(false);
     }
   };
 

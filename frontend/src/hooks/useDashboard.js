@@ -148,7 +148,7 @@ export const useDashboard = () => {
   // 🎯 Load Initial Data
   useEffect(() => {
     loadDashboard();
-  }, [loadDashboard]);
+  }, []);
 
   // 🎯 SIMPLE Return Object
   return {

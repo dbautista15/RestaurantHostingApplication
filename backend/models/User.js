@@ -21,7 +21,7 @@ const bcrypt = require('bcrypt');
  */
 
 const userSchema = new mongoose.Schema({
-  // TODO: Define clockNumber field
+  // TODO: Define clockInNumber field
   // REQUIREMENTS: String, unique, required (like "H001", "W001")
   // HINT: This is how staff identify themselves at login
   // YOUR CODE HERE:

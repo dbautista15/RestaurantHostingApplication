@@ -27,11 +27,11 @@ const router = express.Router();
  * TODO: Implement Login Endpoint
  * 
  * ENDPOINT: POST /api/auth/login
- * BODY: { clockNumber, password }
+ * BODY: { clockInNumber, password }
  * 
  * REQUIREMENTS:
- * 1. Validate input (clockNumber and password present)
- * 2. Find user by clockNumber
+ * 1. Validate input (clockInNumber and password present)
+ * 2. Find user by clockInNumber
  * 3. Verify password using user.verifyPassword()
  * 4. Check if user is active
  * 5. Generate JWT token
@@ -39,13 +39,13 @@ const router = express.Router();
  * 7. Return user data and token
  * 
  * ERROR CASES:
- * - 400: Missing clockNumber or password
+ * - 400: Missing clockInNumber or password
  * - 401: Invalid credentials
  * - 403: User account disabled
  */
-router.post('/login', async (req, res) => {
-    // TODO: Extract clockNumber and password from request body
-    // HINT: Use destructuring: const { clockNumber, password } = req.body;
+router.post('/login', validateLogin,async (req, res) => {
+    // TODO: Extract clockInNumber and password from request body
+    // HINT: Use destructuring: const { clockInNumber, password } = req.body;
     // YOUR CODE HERE:
   console.log('=== LOGIN REQUEST ===');
   console.log('Body received:', JSON.stringify(req.body));
@@ -73,7 +73,7 @@ router.post('/login', async (req, res) => {
       });
     }    
     
-    // TODO: Find user by clockNumber
+    // TODO: Find user by clockInNumber
     // HINT: Use User.findOne()
     // YOUR CODE HERE:
 ////////////////////////////////////////////
@@ -135,17 +135,18 @@ router.post('/login', async (req, res) => {
     // YOUR CODE HERE:
 
     //concept: response shape what the client needs, why this specific format? frontend needs user info + auth token
-    res.status(200).json({
-      success: true,
-
-      user:{
-        id: user._id,
-        role:user.role,
-        section:user.section,
-        shiftStart:user.shiftStart
-      }, 
-      token
-    });
+res.status(200).json({
+  success: true,
+  user: {
+    id: user._id,
+    userName: user.userName,  // Add this line
+    role: user.role,
+    section: user.section,
+    shiftStart: user.shiftStart,
+    clockInNumber: user.clockInNumber  // And optionally this
+  },
+  token
+});
   } catch (error) {
     console.error('Login error:',error);
     res.status(500).json({
@@ -384,7 +385,7 @@ module.exports = router;
  * 
  * 1. Test login with valid credentials:
  *    POST /api/auth/login
- *    Body: {"clockNumber": "H001", "password": "password123"}
+ *    Body: {"clockInNumber": "H001", "password": "password123"}
  *    Expected: 200 with user data and token
  * 
  * 2. Test login with invalid credentials:

@@ -1,4 +1,4 @@
-// src/App.js - NO MORE SHIFT CONTEXT
+// src/App.js
 import React, { useState } from 'react';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { LoginScreen } from './components/auth/LoginScreen';
@@ -6,7 +6,7 @@ import { useAuth } from './hooks/useAuth';
 import ShiftSetup from './components/ShiftSetup';
 
 const App = () => {
-  const { user, isAuthenticated, login, logout, loading } = useAuth();
+  const { user, isAuthenticated, loading, logout } = useAuth(); // Add logout here
   const [needsShiftSetup, setNeedsShiftSetup] = useState(false);
 
   // Show loading spinner while checking auth
@@ -23,7 +23,7 @@ const App = () => {
 
   // Not authenticated - show login screen
   if (!isAuthenticated) {
-    return <LoginScreen onLogin={login} />;
+    return <LoginScreen />;
   }
 
   // Show shift setup if needed
@@ -32,17 +32,16 @@ const App = () => {
       <ShiftSetup 
         onComplete={() => {
           setNeedsShiftSetup(false);
-          // Dashboard will refresh and get new shift data
         }} 
       />
     );
   }
 
-  // Main dashboard - it will check if shift is configured
+  // Main dashboard
   return (
     <Dashboard 
       user={user} 
-      onLogout={logout}
+      onLogout={logout} // Use the logout function from useAuth
       onNeedShiftSetup={() => setNeedsShiftSetup(true)}
     />
   );
