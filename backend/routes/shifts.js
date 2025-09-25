@@ -433,6 +433,12 @@ router.post(
       }
 
       waiter.section = nextSection;
+      if (!waiter.shiftStart) {
+        waiter.shiftStart = new Date();
+        console.log(
+          `Auto-clocked in ${waiter.userName} when assigned to section ${nextSection}`
+        );
+      }
       await waiter.save({ session });
 
       const configName = getConfigName(targetServerCount);

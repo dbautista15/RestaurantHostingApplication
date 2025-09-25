@@ -1,10 +1,10 @@
 // frontend/src/components/dashboard/SimpleWaiterManager.jsx
-import React, { useState, useEffect } from 'react';
-import { useActions } from '../../hooks/useAction';
+import React, { useState, useEffect } from "react";
+import { useActions } from "../../hooks/useAction";
 
 export const SimpleWaiterManager = ({ onClose, onUpdate }) => {
   const [activeWaiters, setActiveWaiters] = useState([]);
-  const [clockInNumber, setClockInNumber] = useState('');
+  const [clockInNumber, setClockInNumber] = useState("");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -18,7 +18,7 @@ export const SimpleWaiterManager = ({ onClose, onUpdate }) => {
   const loadActiveWaiters = async () => {
     setLoading(true);
     try {
-      const response = await apiCall('/users/waiters-by-section');
+      const response = await apiCall("/users/waiters-by-section");
       if (response.success) {
         // Flatten the waiters from all sections and sort by section
         const waiters = [];
@@ -38,36 +38,43 @@ export const SimpleWaiterManager = ({ onClose, onUpdate }) => {
 
   const handleAddWaiter = async () => {
     if (!clockInNumber.trim()) return;
-    
+
     setActionLoading(true);
     setError(null);
-    
+
     try {
       // Check if we're already at max
       if (activeWaiters.length >= 7) {
-        setError('Maximum 7 waiters supported');
+        setError("Maximum 7 waiters supported");
         return;
       }
 
       // Try to find and add the waiter
-      const response = await apiCall('/shifts/add-waiter', {
-        method: 'POST',
-        body: JSON.stringify({ 
+      const response = await apiCall("/shifts/add-waiter", {
+        method: "POST",
+        body: JSON.stringify({
           clockInNumber: clockInNumber.toUpperCase().trim(),
-          targetServerCount: activeWaiters.length + 1
-        })
+          targetServerCount: activeWaiters.length + 1,
+        }),
       });
 
       if (response.success) {
-        setClockInNumber('');
+        const message = response.autoClockIn
+          ? `${response.waiter.userName} clocked in and added to section ${response.waiter.section}`
+          : `${response.waiter.userName} added to section ${response.waiter.section}`;
+
+        console.log(message);
+        setClockInNumber("");
         setWaitingForLogin(null);
         await loadActiveWaiters();
         onUpdate?.(); // Refresh dashboard
       }
-      
     } catch (err) {
       // Handle "waiter not logged in" case
-      if (err.message.includes('not logged in') || err.message.includes('not found')) {
+      if (
+        err.message.includes("not logged in") ||
+        err.message.includes("not found")
+      ) {
         setWaitingForLogin(clockInNumber.toUpperCase().trim());
         setError(null);
       } else {
@@ -81,27 +88,26 @@ export const SimpleWaiterManager = ({ onClose, onUpdate }) => {
   const handleRemoveWaiter = async (waiterId) => {
     setActionLoading(true);
     setError(null);
-    
+
     try {
       // Check if we're already at min
       if (activeWaiters.length <= 4) {
-        setError('Minimum 4 waiters required');
+        setError("Minimum 4 waiters required");
         return;
       }
 
-      const response = await apiCall('/shifts/remove-waiter', {
-        method: 'POST', 
-        body: JSON.stringify({ 
+      const response = await apiCall("/shifts/remove-waiter", {
+        method: "POST",
+        body: JSON.stringify({
           waiterId,
-          targetServerCount: activeWaiters.length - 1
-        })
+          targetServerCount: activeWaiters.length - 1,
+        }),
       });
 
       if (response.success) {
         await loadActiveWaiters();
         onUpdate?.(); // Refresh dashboard
       }
-      
     } catch (err) {
       setError(err.message);
     } finally {
@@ -131,7 +137,6 @@ export const SimpleWaiterManager = ({ onClose, onUpdate }) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
-        
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-gray-800">Manage Waiters</h2>
@@ -155,22 +160,25 @@ export const SimpleWaiterManager = ({ onClose, onUpdate }) => {
           <h3 className="font-medium text-gray-700 mb-3">
             Current Waiters ({activeWaiters.length}/7)
           </h3>
-          
+
           {activeWaiters.length === 0 ? (
             <div className="text-center py-4 text-gray-500 bg-gray-50 rounded-lg">
               <p className="text-sm">No waiters currently working</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {activeWaiters.map(waiter => (
-                <div key={waiter._id} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
+              {activeWaiters.map((waiter) => (
+                <div
+                  key={waiter._id}
+                  className="flex justify-between items-center bg-gray-50 p-3 rounded-lg"
+                >
                   <div>
                     <div className="font-medium text-sm">{waiter.userName}</div>
                     <div className="text-xs text-gray-600">
                       {waiter.clockInNumber} • Section {waiter.section}
                     </div>
                   </div>
-                  
+
                   {activeWaiters.length > 4 && (
                     <button
                       onClick={() => handleRemoveWaiter(waiter._id)}
@@ -190,7 +198,7 @@ export const SimpleWaiterManager = ({ onClose, onUpdate }) => {
         {activeWaiters.length < 7 && (
           <div className="mb-6">
             <h3 className="font-medium text-gray-700 mb-3">Add Waiter</h3>
-            
+
             {waitingForLogin ? (
               // Waiting for login state
               <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
@@ -199,7 +207,8 @@ export const SimpleWaiterManager = ({ onClose, onUpdate }) => {
                     <strong>Tell {waitingForLogin} to log in first</strong>
                   </div>
                   <p className="text-xs text-yellow-700 mb-4">
-                    They need to sign in on their device before being added to the shift
+                    They need to sign in on their device before being added to
+                    the shift
                   </p>
                   <div className="flex gap-2">
                     <button
@@ -213,14 +222,20 @@ export const SimpleWaiterManager = ({ onClose, onUpdate }) => {
                       disabled={actionLoading}
                       className="flex-1 px-4 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 disabled:opacity-50"
                     >
-                      {actionLoading ? 'Adding...' : 'Continue'}
+                      {actionLoading ? "Adding..." : "Continue"}
                     </button>
                   </div>
                 </div>
               </div>
             ) : (
               // Normal add waiter form
-              <form onSubmit={(e) => { e.preventDefault(); handleAddWaiter(); }} className="space-y-3">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleAddWaiter();
+                }}
+                className="space-y-3"
+              >
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Clock-In Number
@@ -228,7 +243,9 @@ export const SimpleWaiterManager = ({ onClose, onUpdate }) => {
                   <input
                     type="text"
                     value={clockInNumber}
-                    onChange={(e) => setClockInNumber(e.target.value.toUpperCase())}
+                    onChange={(e) =>
+                      setClockInNumber(e.target.value.toUpperCase())
+                    }
                     className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="e.g., W042, 003"
                     disabled={actionLoading}
@@ -239,7 +256,7 @@ export const SimpleWaiterManager = ({ onClose, onUpdate }) => {
                   disabled={!clockInNumber.trim() || actionLoading}
                   className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {actionLoading ? 'Adding...' : 'Add Waiter'}
+                  {actionLoading ? "Adding..." : "Add Waiter"}
                 </button>
               </form>
             )}
@@ -252,7 +269,7 @@ export const SimpleWaiterManager = ({ onClose, onUpdate }) => {
             <span>Sections Active: {activeWaiters.length}</span>
             <span>Max Capacity: 7</span>
           </div>
-          
+
           <button
             onClick={onClose}
             className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"

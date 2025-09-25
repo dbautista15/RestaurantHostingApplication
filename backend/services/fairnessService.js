@@ -1,5 +1,5 @@
-const AuditEvent = require('../models/AuditEvent');
-const User = require('../models/User');
+const AuditEvent = require("../models/AuditEvent");
+const User = require("../models/User");
 
 class FairnessService {
   /**
@@ -7,9 +7,9 @@ class FairnessService {
    */
   async getCurrentMatrix() {
     const activeWaiters = await User.find({
-      role: 'waiter',
+      role: "waiter",
       isActive: true,
-      shiftStart: { $ne: null }
+      shiftStart: { $ne: null },
     }).sort({ section: 1 });
 
     if (activeWaiters.length === 0) {
@@ -22,37 +22,46 @@ class FairnessService {
 
     return {
       matrix,
-      waiters: activeWaiters.map(w => ({
-        id: w._id,
+      waiters: activeWaiters.map((w) => ({
+        id: w._id.toString(), // Ensure it's a string
         name: w.userName,
-        section: w.section
+        section: w.section,
       })),
-      fairnessScore
+      waiterIdToIndex: activeWaiters.reduce((map, w, idx) => {
+        map[w._id.toString()] = idx;
+        return map;
+      }, {}),
+      fairnessScore,
     };
   }
 
   async buildMatrixFromAuditTrail(waiters) {
-    const matrix = Array(waiters.length).fill().map(() => Array(6).fill(0));
-    
+    const matrix = Array(waiters.length)
+      .fill()
+      .map(() => Array(6).fill(0));
+
     // Get today's assignments from audit trail
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     const assignments = await AuditEvent.find({
-      eventType: 'ASSIGNMENT',
-      createdAt: { $gte: today }
-    }).populate('userId');
+      eventType: "ASSIGNMENT",
+      createdAt: { $gte: today },
+    }).populate("userId");
 
     // Build matrix from actual assignments
-    assignments.forEach(assignment => {
+    assignments.forEach((assignment) => {
       if (!assignment.metadata?.partySize) return;
 
-      const waiterIndex = waiters.findIndex(w => 
-        w._id.toString() === assignment.userId?._id.toString()
+      const waiterIndex = waiters.findIndex(
+        (w) => w._id.toString() === assignment.userId?._id.toString()
       );
 
       if (waiterIndex >= 0) {
-        const partySizeIndex = Math.min(5, Math.max(0, assignment.metadata.partySize - 1));
+        const partySizeIndex = Math.min(
+          5,
+          Math.max(0, assignment.metadata.partySize - 1)
+        );
         matrix[waiterIndex][partySizeIndex]++;
       }
     });
@@ -63,10 +72,12 @@ class FairnessService {
   calculateFairnessScore(matrix) {
     if (!matrix.length) return 100;
 
-    const totals = matrix.map(row => row.reduce((a, b) => a + b, 0));
+    const totals = matrix.map((row) => row.reduce((a, b) => a + b, 0));
     const avg = totals.reduce((a, b) => a + b, 0) / totals.length;
-    const variance = totals.reduce((sum, total) => sum + Math.pow(total - avg, 2), 0) / totals.length;
-    
+    const variance =
+      totals.reduce((sum, total) => sum + Math.pow(total - avg, 2), 0) /
+      totals.length;
+
     return Math.max(0, 100 - Math.round(variance * 10));
   }
 
@@ -74,7 +85,7 @@ class FairnessService {
     // This method is called by the seating coordinator
     // It ensures the audit trail is updated consistently
     const waiter = await User.findById(waiterId);
-    if (!waiter) throw new Error('Waiter not found');
+    if (!waiter) throw new Error("Waiter not found");
 
     // The audit event creation happens in seatingCoordinator
     // This method can do additional fairness-related tracking if needed

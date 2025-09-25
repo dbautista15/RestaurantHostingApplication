@@ -1,8 +1,8 @@
 // backend/services/core/assignmentEngine.js
-const Table = require('../models/Table');
-const User = require('../models/User');
-const SectionConfiguration = require('../models/SectionConfiguration');
-const fairnessService = require('./fairnessService');
+const Table = require("../models/Table");
+const User = require("../models/User");
+const SectionConfiguration = require("../models/SectionConfiguration");
+const fairnessService = require("./fairnessService");
 
 class AssignmentEngine {
   /**
@@ -10,12 +10,16 @@ class AssignmentEngine {
    * This is the ONLY place assignment algorithm exists
    */
   async findBestAssignment(partySize, options = {}) {
-    const { excludeWaiters = [], urgentParty = false, tablePreference = null } = options;
+    const {
+      excludeWaiters = [],
+      urgentParty = false,
+      tablePreference = null,
+    } = options;
 
     try {
       // 1. Get current system state from database
       const systemState = await this.getSystemState(partySize, excludeWaiters);
-      
+
       if (!systemState.hasAvailableTables) {
         return null;
       }
@@ -32,9 +36,8 @@ class AssignmentEngine {
       );
 
       return assignment;
-
     } catch (error) {
-      console.error('Assignment engine error:', error);
+      console.error("Assignment engine error:", error);
       throw error;
     }
   }
@@ -42,16 +45,16 @@ class AssignmentEngine {
   async getSystemState(partySize, excludeWaiters) {
     const [availableTables, activeWaiters, activeConfig] = await Promise.all([
       Table.find({
-        state: 'available',
+        state: "available",
         section: { $ne: null },
-        capacity: { $gte: partySize, $lte: partySize + 2 }
+        capacity: { $gte: partySize, $lte: partySize + 2 },
       }),
       User.find({
-        role: 'waiter',
+        role: "waiter",
         isActive: true,
-        _id: { $nin: excludeWaiters }
+        _id: { $nin: excludeWaiters },
       }).sort({ section: 1 }),
-      SectionConfiguration.findOne({ isActive: true })
+      SectionConfiguration.findOne({ isActive: true }),
     ]);
 
     return {
@@ -59,7 +62,7 @@ class AssignmentEngine {
       activeWaiters,
       activeConfig,
       hasAvailableTables: availableTables.length > 0,
-      hasActiveWaiters: activeWaiters.length > 0
+      hasActiveWaiters: activeWaiters.length > 0,
     };
   }
 
@@ -67,14 +70,31 @@ class AssignmentEngine {
     const { availableTables, activeWaiters } = systemState;
     const { urgentParty, tablePreference } = options;
 
+    // ADD DEBUG LOGGING
+    console.log("=== ASSIGNMENT DEBUG ===");
+    console.log("Active waiters count:", activeWaiters.length);
+    console.log("Matrix rows count:", fairnessMatrix.matrix.length);
+    console.log(
+      "Waiter IDs:",
+      activeWaiters.map((w) => ({
+        id: w._id,
+        name: w.userName,
+        section: w.section,
+      }))
+    );
+    console.log(
+      "Matrix waiter IDs:",
+      fairnessMatrix.waiters.map((w) => ({ id: w.id, name: w.name }))
+    );
+
     // Group tables by waiter section
     const tablesBySection = this.groupTablesBySection(availableTables);
-    
+
     // Find best waiter using fairness algorithm
     const bestWaiter = this.selectBestWaiter(
-      partySize, 
-      activeWaiters, 
-      fairnessMatrix, 
+      partySize,
+      activeWaiters,
+      fairnessMatrix,
       urgentParty
     );
 
@@ -94,10 +114,14 @@ class AssignmentEngine {
       waiter: bestWaiter,
       table: bestTable,
       partySize,
-      confidence: this.calculateConfidence(partySize, bestTable, fairnessMatrix),
+      confidence: this.calculateConfidence(
+        partySize,
+        bestTable,
+        fairnessMatrix
+      ),
       reason: this.generateReason(partySize, bestWaiter, fairnessMatrix),
-      algorithm: 'fairness-optimized',
-      timestamp: new Date()
+      algorithm: "fairness-optimized",
+      timestamp: new Date(),
     };
   }
 
@@ -112,22 +136,54 @@ class AssignmentEngine {
   selectBestWaiter(partySize, waiters, matrix, urgentParty) {
     const partySizeIndex = this.getPartySizeIndex(partySize);
 
-    return waiters.reduce((best, current, index) => {
-      const currentCount = matrix.matrix[index][partySizeIndex];
-      const currentTotal = matrix.matrix[index].reduce((a, b) => a + b, 0);
+    return waiters.reduce((best, current) => {
+      // Find the waiter's index in the matrix by ID
+      const matrixIndex = matrix.waiterIdToIndex[current._id.toString()];
 
-      if (!best) return { ...current, index, count: currentCount, total: currentTotal };
+      if (matrixIndex === undefined) {
+        console.warn(
+          `Waiter ${current.userName} (${current._id}) not found in fairness matrix - skipping`
+        );
+        return best;
+      }
+
+      const currentCount = matrix.matrix[matrixIndex][partySizeIndex];
+      const currentTotal = matrix.matrix[matrixIndex].reduce(
+        (a, b) => a + b,
+        0
+      );
+
+      if (!best)
+        return {
+          ...current.toObject(),
+          matrixIndex,
+          count: currentCount,
+          total: currentTotal,
+        };
 
       // Urgent parties get less strict fairness (total tables matter more)
       if (urgentParty) {
-        return currentTotal < best.total ? 
-          { ...current, index, count: currentCount, total: currentTotal } : best;
+        return currentTotal < best.total
+          ? {
+              ...current.toObject(),
+              matrixIndex,
+              count: currentCount,
+              total: currentTotal,
+            }
+          : best;
       }
 
       // Normal fairness: prefer waiter with lowest count for this party size
-      if (currentCount < best.count || 
-          (currentCount === best.count && currentTotal < best.total)) {
-        return { ...current, index, count: currentCount, total: currentTotal };
+      if (
+        currentCount < best.count ||
+        (currentCount === best.count && currentTotal < best.total)
+      ) {
+        return {
+          ...current.toObject(),
+          matrixIndex,
+          count: currentCount,
+          total: currentTotal,
+        };
       }
 
       return best;
@@ -139,7 +195,9 @@ class AssignmentEngine {
 
     // If specific table requested and available, use it
     if (tablePreference) {
-      const preferredTable = availableTables.find(t => t.tableNumber === tablePreference);
+      const preferredTable = availableTables.find(
+        (t) => t.tableNumber === tablePreference
+      );
       if (preferredTable) return preferredTable;
     }
 
@@ -160,7 +218,7 @@ class AssignmentEngine {
 
   calculateConfidence(partySize, table, matrix) {
     let confidence = 100;
-    
+
     // Perfect size match bonus
     if (table.capacity === partySize) {
       confidence += 10;
@@ -180,11 +238,11 @@ class AssignmentEngine {
   generateReason(partySize, waiter, matrix) {
     const partySizeIndex = this.getPartySizeIndex(partySize);
     const count = matrix.matrix[waiter.index][partySizeIndex];
-    
+
     if (count === 0) {
       return `${waiter.userName} hasn't had a ${partySize}-top yet today`;
     }
-    
+
     return `${waiter.userName} has the fewest ${partySize}-tops (${count})`;
   }
 }
