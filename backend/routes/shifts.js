@@ -90,7 +90,7 @@ router.post(
           timestamp: new Date(),
           changedBy: {
             id: req.user._id,
-            name: req.user.userName,
+            userName: req.user.userName,
             role: req.user.role,
           },
         });
