@@ -1,4 +1,4 @@
-// backend/routes/shifts.js - COMPLETE with WebSocket
+// backend/routes/shifts.js - COMPLETE with WebSocket (txn-free setup-with-waiters)
 const express = require("express");
 const Table = require("../models/Table");
 const SectionConfiguration = require("../models/SectionConfiguration");
@@ -117,68 +117,69 @@ router.post(
   }
 );
 
-// POST /api/shifts/setup-with-waiters
+// POST /api/shifts/setup-with-waiters (transaction-free)
 router.post(
   "/setup-with-waiters",
   authenticateToken,
   requireRole(["host"]),
   async (req, res) => {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
     try {
       const { serverCount, orderedWaiters } = req.body;
       const io = req.app.get("io");
 
+      if (!Array.isArray(orderedWaiters) || orderedWaiters.length === 0) {
+        return res.status(400).json({ error: "orderedWaiters required" });
+      }
       if (serverCount < 4 || serverCount > 7) {
         return res.status(400).json({
           error: "Server count must be between 4 and 7",
         });
       }
 
-      // Find the best configuration
-      const config = await SectionConfiguration.findOne({
+      // Find the best configuration (≤ requested). If none, fallback to 4-server config.
+      let config = await SectionConfiguration.findOne({
         serverCount: { $lte: serverCount },
-      })
-        .sort({ serverCount: -1 })
-        .session(session);
+      }).sort({ serverCount: -1 });
 
       if (!config) {
-        throw new Error("No configuration available");
+        config = await SectionConfiguration.findOne({ serverCount: 4 });
+      }
+      if (!config) {
+        return res.status(404).json({
+          error:
+            "No shift configurations available. Please create a 4–7 server config.",
+        });
       }
 
-      // Deactivate all configs
-      await SectionConfiguration.updateMany(
-        {},
-        { isActive: false },
-        { session }
-      );
-
-      // Activate selected
+      // Deactivate all configs, activate selected
+      await SectionConfiguration.updateMany({}, { isActive: false });
       config.isActive = true;
-      await config.save({ session });
+      await config.save();
 
       // Apply to tables
       await applyConfigurationToTables(config);
 
-      // Update each waiter's section
+      // Update each waiter's section (host order is canonical)
       for (const assignment of orderedWaiters) {
-        await User.findByIdAndUpdate(
-          assignment.waiterId,
-          { section: assignment.section },
-          { session }
+        const { waiterId, section } = assignment;
+        if (!waiterId || !Number.isFinite(section)) continue;
+
+        await User.findByIdAndUpdate(waiterId, { section });
+
+        // Auto clock-in if they forgot
+        await User.updateOne(
+          { _id: waiterId, shiftStart: null },
+          { $set: { shiftStart: new Date(), clockedInByHost: true } }
         );
       }
-
-      await session.commitTransaction();
 
       // 🎯 WEBSOCKET: Broadcast shift setup complete
       broadcastShiftConfigChange(
         io,
         {
           configurationName: config.shiftName,
-          serverCount: serverCount,
-          activeSections: orderedWaiters.length,
+          serverCount,
+          activeSections: Math.min(serverCount, config.activeSections.length),
         },
         {
           id: req.user._id,
@@ -201,17 +202,14 @@ router.post(
         );
       }
 
-      res.json({
+      return res.json({
         success: true,
         message: `Shift started with ${serverCount} servers`,
         configuration: config.shiftName,
       });
     } catch (error) {
-      await session.abortTransaction();
       console.error("Shift setup error:", error);
       res.status(500).json({ error: "Failed to setup shift" });
-    } finally {
-      session.endSession();
     }
   }
 );
@@ -357,7 +355,7 @@ router.post(
   }
 );
 
-// POST /api/shifts/add-waiter
+// POST /api/shifts/add-waiter (kept transactional)
 router.post(
   "/add-waiter",
   authenticateToken,
@@ -512,7 +510,7 @@ router.post(
   }
 );
 
-// POST /api/shifts/remove-waiter
+// POST /api/shifts/remove-waiter (kept transactional)
 router.post(
   "/remove-waiter",
   authenticateToken,

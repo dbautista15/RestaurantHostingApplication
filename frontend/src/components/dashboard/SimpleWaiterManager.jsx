@@ -3,7 +3,17 @@ import React, { useState, useEffect } from "react";
 import { useActions } from "../../hooks/useAction";
 
 export const SimpleWaiterManager = ({ onClose, onUpdate }) => {
-  const [activeWaiters, setActiveWaiters] = useState([]);
+  // Put this once, top of file or top of component:
+  const API_BASE =
+    process.env.REACT_APP_API_BASE?.replace(/\/$/, "") ||
+    "http://localhost:3000";
+
+  // New state to hold all active waiters (clocked-in or not) and selection for adding
+  const [activeWaiters, setActiveWaiters] = React.useState([]);
+  const [selectedAddId, setSelectedAddId] = React.useState("");
+  const [availableWaiters, setAvailableWaiters] = useState([]); // <- add
+  const [orderedWaiters, setOrderedWaiters] = useState([]); // <- add
+
   const [clockInNumber, setClockInNumber] = useState("");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -11,9 +21,60 @@ export const SimpleWaiterManager = ({ onClose, onUpdate }) => {
   const [waitingForLogin, setWaitingForLogin] = useState(null);
   const { apiCall } = useActions();
 
-  useEffect(() => {
-    loadActiveWaiters();
-  }, []);
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = localStorage.getItem("auth_token");
+        const headers = { Authorization: `Bearer ${token}` };
+
+        const [clockedRes, activeRes] = await Promise.all([
+          fetch(`${API_BASE}/api/users/clocked-in-waiters`, { headers }),
+          fetch(`${API_BASE}/api/users/active-staff`, { headers }),
+        ]);
+
+        const clockedJson = await clockedRes.json();
+        const activeJson = await activeRes.json();
+
+        if (!cancelled) {
+          const clocked = clockedJson?.success ? clockedJson.waiters ?? [] : [];
+          const active = activeJson?.success
+            ? activeJson?.staff?.waiters ?? []
+            : [];
+
+          setAvailableWaiters(clocked);
+          setOrderedWaiters(clocked); // seed initial order with clocked-in
+          setActiveWaiters(active); // addable pool (may include not clocked-in)
+        }
+      } catch (e) {
+        if (!cancelled) setError("Failed to load waiters");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [API_BASE]);
+
+  // Anyone active who is not yet in the ordered list is addable
+  const addableWaiters = React.useMemo(() => {
+    const inOrder = new Set(orderedWaiters.map((w) => w._id));
+    return activeWaiters.filter((w) => !inOrder.has(w._id));
+  }, [activeWaiters, orderedWaiters]);
+
+  function handleAddSelected() {
+    if (!selectedAddId) return;
+    const w = activeWaiters.find((x) => x._id === selectedAddId);
+    if (!w) return;
+    setOrderedWaiters((prev) => [...prev, w]); // append at end; host can move up/down
+    setSelectedAddId("");
+  }
 
   const loadActiveWaiters = async () => {
     setLoading(true);
@@ -152,6 +213,35 @@ export const SimpleWaiterManager = ({ onClose, onUpdate }) => {
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-lg mb-4 text-sm">
             {error}
+          </div>
+        )}
+        {addableWaiters.length > 0 && (
+          <div className="mb-4 rounded-lg border p-3 bg-gray-50">
+            <div className="text-sm font-medium mb-2">
+              Add a waiter who isn’t clocked in
+            </div>
+            <div className="flex gap-2">
+              <select
+                className="border rounded px-2 py-1 flex-1"
+                value={selectedAddId}
+                onChange={(e) => setSelectedAddId(e.target.value)}
+              >
+                <option value="">Select waiter…</option>
+                {addableWaiters.map((w) => (
+                  <option key={w._id} value={w._id}>
+                    {w.userName} {w.shiftStart ? "" : "(not clocked in)"}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={handleAddSelected}
+                disabled={!selectedAddId}
+                className="px-3 py-1 border rounded disabled:opacity-50"
+              >
+                Add
+              </button>
+            </div>
           </div>
         )}
 

@@ -1,9 +1,9 @@
 // src/App.js
-import React, { useState } from 'react';
-import { Dashboard } from './components/dashboard/Dashboard';
-import { LoginScreen } from './components/auth/LoginScreen';
-import { useAuth } from './hooks/useAuth';
-import {ShiftSetupWithWaiters} from './components/ShiftSetupWithWaiters';
+import React, { useState } from "react";
+import { Dashboard } from "./components/dashboard/Dashboard";
+import { LoginScreen } from "./components/auth/LoginScreen";
+import { useAuth } from "./hooks/useAuth";
+import ShiftSetupWithWaiters from "./components/ShiftSetupWithWaiters";
 
 const App = () => {
   const { user, isAuthenticated, loading, logout } = useAuth(); // Add logout here
@@ -29,18 +29,18 @@ const App = () => {
   // Show shift setup if needed
   if (needsShiftSetup) {
     return (
-      <ShiftSetupWithWaiters 
+      <ShiftSetupWithWaiters
         onComplete={() => {
           setNeedsShiftSetup(false);
-        }} 
+        }}
       />
     );
   }
 
   // Main dashboard
   return (
-    <Dashboard 
-      user={user} 
+    <Dashboard
+      user={user}
       onLogout={logout} // Use the logout function from useAuth
       onNeedShiftSetup={() => setNeedsShiftSetup(true)}
     />

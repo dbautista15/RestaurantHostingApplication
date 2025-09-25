@@ -5,7 +5,7 @@ import { useDashboardWebSocket } from "../../hooks/useWebSocket"; // NEW
 import { WaitlistPanel } from "../waitlist/WaitlistPanel";
 import { FloorPlanView } from "../floorplan/FloorPlanView";
 import { SuggestionsPanel } from "../seating/SuggestionsPanel";
-import { SimpleWaiterManager } from "./SimpleWaiterManager";
+import { SimpleWaiterManager } from "../dashboard/SimpleWaiterManager";
 import {
   ThreePanelLayout,
   LeftPanel,
