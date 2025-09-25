@@ -97,6 +97,35 @@ export const Dashboard = ({ user, onLogout, onNeedShiftSetup }) => {
 
   if (error) return <DashboardError error={error} onRetry={refresh} />;
   if (loading) return <DashboardSkeleton />;
+  if (user?.role === 'host') {
+  const showDebugButton = true; // Set to false in production
+  
+  if (showDebugButton) {
+    return (
+      <ThreePanelLayout 
+        user={user} 
+        onLogout={onLogout}
+        waitlistCount={waitlist.length}
+      >
+        <div className="h-full flex items-center justify-center col-span-3">
+          <div className="text-center">
+            <h2 className="text-xl font-bold mb-4">Shift Setup Debug</h2>
+            <p className="mb-2">Shift configured: {shift?.isConfigured ? 'Yes' : 'No'}</p>
+            <button
+              onClick={() => {
+                console.log('Triggering shift setup...');
+                onNeedShiftSetup();
+              }}
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
+            >
+              Open Shift Setup
+            </button>
+          </div>
+        </div>
+      </ThreePanelLayout>
+    );
+  }
+}
 
   // 🎯 IMPLEMENT Table Click Handler
   const handleTableClick = async (tableId, metadata = {}) => {
