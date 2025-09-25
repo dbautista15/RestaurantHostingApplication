@@ -4,7 +4,7 @@ const Table = require('../models/Table');
 const SectionConfiguration = require('../models/SectionConfiguration');
 const User = require('../models/User');
 const { authenticateToken, requireRole } = require('../middleware/auth');
-
+const mongoose = require('mongoose');
 const router = express.Router();
 
 /**
@@ -110,6 +110,66 @@ router.post('/activate', authenticateToken, requireRole(['host', 'manager']), as
     res.status(500).json({ error: 'Failed to activate configuration' });
   }
 });
+
+
+router.post('/setup-with-waiters', authenticateToken, requireRole(['host']), async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  
+  try {
+    const { serverCount, orderedWaiters } = req.body;
+    
+    if (serverCount < 4 || serverCount > 7) {
+      return res.status(400).json({
+        error: 'Server count must be between 4 and 7'
+      });
+    }
+
+    // Find the best configuration
+    const config = await SectionConfiguration.findOne({ 
+      serverCount: { $lte: serverCount }
+    }).sort({ serverCount: -1 }).session(session);
+
+    if (!config) {
+      throw new Error('No configuration available');
+    }
+
+    // Deactivate all configs
+    await SectionConfiguration.updateMany({}, { isActive: false }, { session });
+    
+    // Activate selected
+    config.isActive = true;
+    await config.save({ session });
+
+    // Apply to tables
+    await applyConfigurationToTables(config);
+
+    // Update each waiter's section
+    for (const assignment of orderedWaiters) {
+      await User.findByIdAndUpdate(
+        assignment.waiterId,
+        { section: assignment.section },
+        { session }
+      );
+    }
+
+    await session.commitTransaction();
+
+    res.json({
+      success: true,
+      message: `Shift started with ${serverCount} servers`,
+      configuration: config.shiftName
+    });
+
+  } catch (error) {
+    await session.abortTransaction();
+    console.error('Shift setup error:', error);
+    res.status(500).json({ error: 'Failed to setup shift' });
+  } finally {
+    session.endSession();
+  }
+});
+
 
 /**
  * GET /api/shifts/active

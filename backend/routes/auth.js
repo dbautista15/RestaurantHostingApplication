@@ -355,7 +355,7 @@ router.post('/register',async(req,res)=>{
       clockInNumber,
       userName,
       role,
-      section:role === 'waiter' ? section: null,
+      section:null,
       passwordHash : password // should be hashed by the pre-save middleware
     });
     await newUser.save();
@@ -367,7 +367,7 @@ router.post('/register',async(req,res)=>{
         userName:newUser.userName,
         clockInNumber:newUser.clockInNumber,
         role:newUser.role,
-        section:newUser.section
+        section:null
       }
     });
   }catch(error){

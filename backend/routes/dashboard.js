@@ -218,9 +218,9 @@ router.get('/', authenticateToken, async (req, res) => {
         
         // User permissions (frontend can enable/disable features)
         permissions: {
-          canDragTables: req.user.role === 'manager',
-          canSeatParties: ['host', 'manager'].includes(req.user.role),
-          canEditWaitlist: ['host', 'manager'].includes(req.user.role),
+          canDragTables: req.user.role === 'host',
+          canSeatParties: ['host'].includes(req.user.role),
+          canEditWaitlist: ['host'].includes(req.user.role),
           canViewMatrix: true
         }
       },

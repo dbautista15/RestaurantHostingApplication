@@ -7,7 +7,6 @@ export const LoginScreen = () => {
   const [password, setPassword] = useState('');
   const [userName, setUserName] = useState('');
   const [role, setRole] = useState('host');
-  const [section, setSection] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -45,7 +44,7 @@ export const LoginScreen = () => {
           clockInNumber,
           userName,
           role,
-          section: role === 'waiter' ? parseInt(section) : null,
+          // No section - waiters get assigned sections at shift start
           password
         })
       });
@@ -59,7 +58,6 @@ export const LoginScreen = () => {
         setPassword('');
         setUserName('');
         setRole('host');
-        setSection('');
       } else {
         setError(data.error || 'Registration failed');
       }
@@ -75,7 +73,6 @@ export const LoginScreen = () => {
     setPassword('');
     setUserName('');
     setRole('host');
-    setSection('');
     setError('');
     setSuccessMessage('');
   };
@@ -113,58 +110,43 @@ export const LoginScreen = () => {
           </div>
 
           {isRegistering && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Full Name
-              </label>
-              <input
-                type="text"
-                value={userName}
-                onChange={(e) => setUserName(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter your full name"
-                required
-              />
-            </div>
-          )}
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter your full name"
+                  required
+                />
+              </div>
 
-          {isRegistering && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Role
-              </label>
-              <select
-                value={role}
-                onChange={(e) => {
-                  setRole(e.target.value);
-                  setSection(''); // Reset section when role changes
-                }}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
-              >
-                <option value="host">Host</option>
-                <option value="waiter">Waiter</option>
-              </select>
-            </div>
-          )}
-
-          {isRegistering && role === 'waiter' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Section
-              </label>
-              <select
-                value={section}
-                onChange={(e) => setSection(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
-              >
-                <option value="">Select a section</option>
-                {[1, 2, 3, 4, 5, 6, 7].map(num => (
-                  <option key={num} value={num}>Section {num}</option>
-                ))}
-              </select>
-            </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Role
+                </label>
+                <select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  <option value="host">Host</option>
+                  <option value="waiter">Waiter</option>
+                </select>
+                
+                {/* Info message for waiters */}
+                {role === 'waiter' && (
+                  <p className="text-sm text-gray-600 mt-2">
+                    ℹ️ Section assignment happens when shift starts
+                  </p>
+                )}
+              </div>
+            </>
           )}
           
           <div>

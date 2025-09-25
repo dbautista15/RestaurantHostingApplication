@@ -76,6 +76,24 @@ export const Dashboard = ({ user, onLogout, onNeedShiftSetup }) => {
       onNeedShiftSetup();                // triggers parent state/route change
     }
   }, [loading, error, user?.role, shiftIsConfigured, onNeedShiftSetup]);
+  
+  if (shift?.isConfigured === false && user?.role === 'host') {
+  return (
+    <div className="h-screen bg-gray-50 flex items-center justify-center">
+      <div className="text-center">
+        <div className="text-6xl mb-4">⚙️</div>
+        <h2 className="text-xl font-semibold text-gray-700 mb-2">Shift Setup Required</h2>
+        <p className="text-gray-500 mb-6">Configure tonight's server sections</p>
+        <button
+          onClick={onNeedShiftSetup}
+          className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
+        >
+          Setup Shift
+        </button>
+      </div>
+    </div>
+  );
+}
 
   if (error) return <DashboardError error={error} onRetry={refresh} />;
   if (loading) return <DashboardSkeleton />;

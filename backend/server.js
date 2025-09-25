@@ -13,7 +13,7 @@ const tableRoutes = require('./routes/tables');
 const waitlistRoutes = require('./routes/waitlist');
 const shiftRoutes = require('./routes/shifts'); // NEW: Add this line
 
-const port = process.env.PORT || 3001;
+const port = process.env.PORT ;
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
@@ -44,6 +44,7 @@ app.use('/api/shifts', require('./routes/shifts'));       // Shift management
 app.use('/api/seating', require('./routes/seating'));     // ALL seating operations
 app.use('/api/dashboard', require('./routes/dashboard')); // Dashboard data
 app.use('/api/demo', require('./routes/demo'));
+app.use('/api/users', require('./routes/users'));
 
 
 

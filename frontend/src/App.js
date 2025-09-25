@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { LoginScreen } from './components/auth/LoginScreen';
 import { useAuth } from './hooks/useAuth';
-import ShiftSetup from './components/ShiftSetup';
+import {ShiftSetupWithWaiters} from './components/ShiftSetupWithWaiters';
 
 const App = () => {
   const { user, isAuthenticated, loading, logout } = useAuth(); // Add logout here
@@ -29,7 +29,7 @@ const App = () => {
   // Show shift setup if needed
   if (needsShiftSetup) {
     return (
-      <ShiftSetup 
+      <ShiftSetupWithWaiters 
         onComplete={() => {
           setNeedsShiftSetup(false);
         }} 
