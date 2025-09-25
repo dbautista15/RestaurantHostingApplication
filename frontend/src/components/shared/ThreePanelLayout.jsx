@@ -1,4 +1,4 @@
-// frontend/src/components/shared/ThreePanelLayout.jsx
+// frontend/src/components/shared/ThreePanelLayout.jsx - Updated with WebSocket status
 import React, { useState } from "react";
 import { LAYOUT_CONFIG } from "../../config/constants";
 
@@ -9,7 +9,8 @@ export const ThreePanelLayout = ({
   waitlistCount,
   businessMetrics,
   onShowWaiterManager,
-  onStartNewShift, // ✅ NEW PROP
+  onStartNewShift,
+  isConnected = false, // 🎯 NEW: WebSocket connection status
 }) => {
   const [isOffline, setIsOffline] = useState(false);
 
@@ -55,12 +56,25 @@ export const ThreePanelLayout = ({
                 <span>📡 API: {stats.apiCalls}</span>
                 <span>⚡ {stats.avgResponseTime}ms</span>
                 <span>💾 Cache: {stats.cacheHits}</span>
+                {/* 🎯 NEW: WebSocket status indicator */}
+                <span
+                  className={`flex items-center gap-1 ${
+                    isConnected ? "text-green-600" : "text-red-600"
+                  }`}
+                >
+                  <span
+                    className={`inline-block w-2 h-2 rounded-full ${
+                      isConnected ? "bg-green-600 animate-pulse" : "bg-red-600"
+                    }`}
+                  />
+                  {isConnected ? "Live" : "Offline"}
+                </span>
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* ✅ NEW: Start New Shift Button - Only for hosts */}
+            {/* Start New Shift Button - Only for hosts */}
             {onStartNewShift && (
               <button
                 onClick={onStartNewShift}
@@ -118,6 +132,19 @@ export const ThreePanelLayout = ({
             </div>
           </div>
         )}
+
+        {/* 🎯 NEW: WebSocket disconnection banner */}
+        {!isOffline && !isConnected && (
+          <div className="bg-red-50 border-l-4 border-red-400 p-2">
+            <div className="flex items-center">
+              <span className="text-sm mr-2">⚠️</span>
+              <p className="text-sm text-red-700">
+                Real-time updates paused - Connection lost. Updates will sync
+                when reconnected.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Three Panel Layout */}
@@ -126,6 +153,7 @@ export const ThreePanelLayout = ({
   );
 };
 
+// Panel components remain unchanged
 export const LeftPanel = ({ children }) => (
   <div
     className="flex-shrink-0 h-full border-r border-gray-200"

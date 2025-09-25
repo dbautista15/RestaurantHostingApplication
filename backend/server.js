@@ -1,109 +1,121 @@
-// Your updated server.js should look like this:
-const express = require('express');
-const cors = require('cors');
-const { createServer } = require('http');
-const { Server } = require('socket.io');
-const mongoose = require('mongoose');
+// backend/server.js - Updated WebSocket section
+const express = require("express");
+const cors = require("cors");
+const { createServer } = require("http");
+const { Server } = require("socket.io");
+const mongoose = require("mongoose");
 
-const { connectDatabase, closeDatabase } = require('./config/database');
+const { connectDatabase, closeDatabase } = require("./config/database");
+const { handleConnection } = require("./socket/handlers"); // Import the new handler
 
 // Import your route handlers
-const authRoutes = require('./routes/auth');
-const tableRoutes = require('./routes/tables');
-const waitlistRoutes = require('./routes/waitlist');
-const shiftRoutes = require('./routes/shifts'); // NEW: Add this line
+const authRoutes = require("./routes/auth");
+const tableRoutes = require("./routes/tables");
+const waitlistRoutes = require("./routes/waitlist");
+const shiftRoutes = require("./routes/shifts");
 
-const port = process.env.PORT ;
+const port = process.env.PORT || 3000;
 const app = express();
 const server = createServer(app);
+
+// 🎯 ENHANCED Socket.IO setup with better CORS handling
 const io = new Server(server, {
-  cors: { origin: "http://localhost:3000", methods: ["GET", "POST"] }
+  cors: {
+    origin: process.env.CLIENT_URL || "http://localhost:3001",
+    methods: ["GET", "POST"],
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
+  },
+  // Additional options for production
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  transports: ["websocket", "polling"],
 });
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL || "http://localhost:3001",
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 app.use(express.json());
 
 // Make io available to routes
-app.set('io', io);
+app.set("io", io);
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
+app.get("/api/health", (req, res) => {
   res.json({
-    status: 'OK',
+    status: "OK",
     timestamp: new Date().toISOString(),
-    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+    database:
+      mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+    websocket: io.engine.clientsCount || 0,
   });
 });
 
-// ✅ CLEAN ROUTE STRUCTURE
-app.use('/api/auth', require('./routes/auth'));           // Authentication
-app.use('/api/waitlist', require('./routes/waitlist'));   // Waitlist CRUD
-app.use('/api/tables', require('./routes/tables'));       // Table read-only
-app.use('/api/shifts', require('./routes/shifts'));       // Shift management
-app.use('/api/seating', require('./routes/seating'));     // ALL seating operations
-app.use('/api/dashboard', require('./routes/dashboard')); // Dashboard data
-app.use('/api/demo', require('./routes/demo'));
-app.use('/api/users', require('./routes/users'));
+// Routes
+app.use("/api/auth", require("./routes/auth"));
+app.use("/api/waitlist", require("./routes/waitlist"));
+app.use("/api/tables", require("./routes/tables"));
+app.use("/api/shifts", require("./routes/shifts"));
+app.use("/api/seating", require("./routes/seating"));
+app.use("/api/dashboard", require("./routes/dashboard"));
+app.use("/api/demo", require("./routes/demo"));
+app.use("/api/users", require("./routes/users"));
 
-
-
-// Socket.IO connection handling
-io.on('connection', (socket) => {
-  console.log('New User Connected:', socket.id);
-  
-  socket.emit('newMessage', {
-    from: 'Server',
-    text: 'Welcome to restaurant management!',
-    createdAt: Date.now()
-  });
-
-  socket.on('createMessage', (message) => {
-    console.log('New Message:', message);
-    io.emit('newMessage', message);
-  });
-
-  // NEW: Handle table state sync between devices (iPad host <-> iPad waiter)
-  socket.on('sync_table_state', (data) => {
-    console.log('Table state sync:', data);
-    // Broadcast to all OTHER connected devices (not the sender)
-    socket.broadcast.emit('table_state_synced', data);
-  });
-
-  socket.on('disconnect', () => {
-    console.log('User Disconnected:', socket.id);
-  });
+// 🎯 ENHANCED Socket.IO connection handling
+io.on("connection", (socket) => {
+  // Use the enhanced handler from socket/handlers.js
+  handleConnection(socket, io);
 });
+
+// Example: How to emit events from routes
+// In your routes, you can now do:
+// const io = req.app.get('io');
+// broadcastTableStateChange(io, tableData);
 
 // Server startup
 const startServer = async () => {
   try {
     await connectDatabase();
-    
+
     server.listen(port, () => {
-      console.log(` Server is up on port: ${port}`);
-      console.log(` Health check: http://localhost:${port}/api/health`);
-      console.log(` Auth endpoint: http://localhost:${port}/api/auth`);
-      console.log(`  Tables endpoint: http://localhost:${port}/api/tables`);
-      console.log(` Waitlist endpoint: http://localhost:${port}/api/waitlist`);
-      console.log(` Shifts endpoint: http://localhost:${port}/api/shifts`); // NEW
+      console.log(`🚀 Server is up on port: ${port}`);
+      console.log(`🔌 WebSocket server ready`);
+      console.log(
+        `📡 CORS allowed origin: ${
+          process.env.CLIENT_URL || "http://localhost:3001"
+        }`
+      );
+      console.log(`💚 Health check: http://localhost:${port}/api/health`);
+      console.log(`🔐 Auth endpoint: http://localhost:${port}/api/auth`);
+      console.log(`🪑 Tables endpoint: http://localhost:${port}/api/tables`);
+      console.log(
+        `📋 Waitlist endpoint: http://localhost:${port}/api/waitlist`
+      );
+      console.log(`👥 Shifts endpoint: http://localhost:${port}/api/shifts`);
     });
-    
   } catch (error) {
-    console.error('Server startup failed:', error.message);
+    console.error("Server startup failed:", error.message);
     process.exit(1);
   }
 };
 
 // Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('Received SIGTERM, shutting down gracefully...');
+process.on("SIGTERM", async () => {
+  console.log("Received SIGTERM, shutting down gracefully...");
+  io.close();
   await closeDatabase();
   process.exit(0);
 });
 
-process.on('SIGINT', async () => {
-  console.log('Received SIGINT, shutting down gracefully...');
+process.on("SIGINT", async () => {
+  console.log("Received SIGINT, shutting down gracefully...");
+  io.close();
   await closeDatabase();
   process.exit(0);
 });

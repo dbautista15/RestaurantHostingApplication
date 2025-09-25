@@ -1,6 +1,7 @@
-// frontend/src/components/dashboard/Dashboard.jsx
+// frontend/src/components/dashboard/Dashboard.jsx - WebSocket Enhanced Version
 import React, { useRef } from "react";
 import { useDashboard } from "../../hooks/useDashboard";
+import { useDashboardWebSocket } from "../../hooks/useWebSocket"; // NEW
 import { WaitlistPanel } from "../waitlist/WaitlistPanel";
 import { FloorPlanView } from "../floorplan/FloorPlanView";
 import { SuggestionsPanel } from "../seating/SuggestionsPanel";
@@ -45,7 +46,6 @@ const DashboardError = ({ error, onRetry }) => (
 );
 
 export const Dashboard = ({ user, onLogout, onNeedShiftSetup }) => {
-  // REMOVED: const didPromptSetupRef = React.useRef(false);
   const floorPlanRef = useRef(null);
   const [showWaiterManager, setShowWaiterManager] = React.useState(false);
   const { tables: tableActions } = useActions();
@@ -70,14 +70,17 @@ export const Dashboard = ({ user, onLogout, onNeedShiftSetup }) => {
     refresh,
   } = useDashboard();
 
+  // 🎯 NEW: WebSocket integration
+  const { isConnected, syncTableState, requestGlobalRefresh } =
+    useDashboardWebSocket(refresh);
+
   const shiftIsConfigured = shift?.isConfigured;
 
-  // Simplified useEffect - no ref blocking
+  // Shift setup effect (unchanged)
   React.useEffect(() => {
     if (loading || error) return;
     if (user?.role !== "host") return;
 
-    // Just check if not configured - no ref blocking
     if (shiftIsConfigured === false) {
       onNeedShiftSetup();
     }
@@ -117,6 +120,8 @@ export const Dashboard = ({ user, onLogout, onNeedShiftSetup }) => {
   const handleWaiterUpdate = async () => {
     console.log("🔄 Waiter configuration changed - refreshing dashboard...");
     await refresh();
+    // 🎯 NEW: Notify other clients via WebSocket
+    requestGlobalRefresh("waiter_configuration_changed");
   };
 
   const handleTableClick = async (tableId, metadata = {}) => {
@@ -132,6 +137,15 @@ export const Dashboard = ({ user, onLogout, onNeedShiftSetup }) => {
 
         if (result.requiresRefresh) {
           await refresh();
+          // 🎯 NEW: Sync table state via WebSocket
+          const table = tables.find((t) => t.id === tableId);
+          if (table) {
+            syncTableState({
+              tableId,
+              newState: result.table.state,
+              metadata,
+            });
+          }
         }
       }
     } catch (error) {
@@ -149,6 +163,12 @@ export const Dashboard = ({ user, onLogout, onNeedShiftSetup }) => {
       if (result.success) {
         console.log(result.message);
         await refresh();
+        // 🎯 NEW: Sync table position via WebSocket
+        syncTableState({
+          tableId,
+          position,
+          action: "position_updated",
+        });
       } else if (result.revertPosition) {
         await refresh();
       }
@@ -166,6 +186,10 @@ export const Dashboard = ({ user, onLogout, onNeedShiftSetup }) => {
   const handleSeatParty = async (partyId) => {
     try {
       const result = await seatParty(partyId);
+      // 🎯 NEW: Notify other clients via WebSocket
+      if (result?.success) {
+        requestGlobalRefresh("party_seated");
+      }
       return result;
     } catch (error) {
       console.error("Failed to seat party:", error);
@@ -199,7 +223,9 @@ export const Dashboard = ({ user, onLogout, onNeedShiftSetup }) => {
         onShowWaiterManager={
           shift?.isConfigured ? () => setShowWaiterManager(true) : null
         }
-        onStartNewShift={user?.role === "host" ? handleStartNewShift : null} // ✅ NEW
+        onStartNewShift={user?.role === "host" ? handleStartNewShift : null}
+        // 🎯 NEW: Show WebSocket connection status
+        isConnected={isConnected}
       >
         <LeftPanel>
           <WaitlistPanel
