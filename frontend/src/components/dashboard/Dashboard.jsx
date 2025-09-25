@@ -1,20 +1,28 @@
-// frontend/src/components/dashboard/Dashboard.jsx - WebSocket Enhanced Version
+// frontend/src/components/dashboard/Dashboard.jsx
 import React, { useRef } from "react";
-import { useDashboard } from "../../hooks/useDashboard";
-import { useDashboardWebSocket } from "../../hooks/useWebSocket"; // NEW
 import { WaitlistPanel } from "../waitlist/WaitlistPanel";
 import { FloorPlanView } from "../floorplan/FloorPlanView";
 import { SuggestionsPanel } from "../seating/SuggestionsPanel";
-import { SimpleWaiterManager } from "../dashboard/SimpleWaiterManager";
+import { SimpleWaiterManager } from "./SimpleWaiterManager";
 import {
   ThreePanelLayout,
   LeftPanel,
   CenterPanel,
   RightPanel,
 } from "../shared/ThreePanelLayout";
-import { useActions } from "../../hooks/useAction";
+import { useDashboard } from "../../hooks/useDashboard";
+import { useDashboardWebSocket } from "../../hooks/useWebSocket"; // always call; hook must be unconditional
 
-// Loading and Error components (unchanged)
+const API_BASE =
+  (process.env.REACT_APP_API_BASE &&
+    process.env.REACT_APP_API_BASE.replace(/\/$/, "")) ||
+  "http://localhost:3000";
+
+const authHeaders = () => ({
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+});
+
 const DashboardSkeleton = () => (
   <div className="h-screen bg-gray-50 flex items-center justify-center">
     <div className="text-center">
@@ -48,7 +56,6 @@ const DashboardError = ({ error, onRetry }) => (
 export const Dashboard = ({ user, onLogout, onNeedShiftSetup }) => {
   const floorPlanRef = useRef(null);
   const [showWaiterManager, setShowWaiterManager] = React.useState(false);
-  const { tables: tableActions } = useActions();
 
   const {
     waitlist,
@@ -70,135 +77,107 @@ export const Dashboard = ({ user, onLogout, onNeedShiftSetup }) => {
     refresh,
   } = useDashboard();
 
-  // 🎯 NEW: WebSocket integration
+  // ✅ Unconditional hook call: this fixes the ESLint/rules-of-hooks error
   const { isConnected, syncTableState, requestGlobalRefresh } =
     useDashboardWebSocket(refresh);
 
-  const shiftIsConfigured = shift?.isConfigured;
-
-  // Shift setup effect (unchanged)
   React.useEffect(() => {
     if (loading || error) return;
     if (user?.role !== "host") return;
-
-    if (shiftIsConfigured === false) {
-      onNeedShiftSetup();
-    }
-  }, [loading, error, user?.role, shiftIsConfigured, onNeedShiftSetup]);
-
-  // Simple handler for starting new shift
-  const handleStartNewShift = () => {
-    onNeedShiftSetup();
-  };
-
-  // Show shift setup screen if not configured
-  if (shift?.isConfigured === false && user?.role === "host") {
-    return (
-      <div className="h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-6xl mb-4">⚙️</div>
-          <h2 className="text-xl font-semibold text-gray-700 mb-2">
-            Shift Setup Required
-          </h2>
-          <p className="text-gray-500 mb-6">
-            Configure tonight's server sections
-          </p>
-          <button
-            onClick={onNeedShiftSetup}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
-          >
-            Setup Shift
-          </button>
-        </div>
-      </div>
-    );
-  }
+    if (shift?.isConfigured === false) onNeedShiftSetup();
+  }, [loading, error, user?.role, shift?.isConfigured, onNeedShiftSetup]);
 
   if (error) return <DashboardError error={error} onRetry={refresh} />;
   if (loading) return <DashboardSkeleton />;
 
-  const handleWaiterUpdate = async () => {
-    console.log("🔄 Waiter configuration changed - refreshing dashboard...");
-    await refresh();
-    // 🎯 NEW: Notify other clients via WebSocket
-    requestGlobalRefresh("waiter_configuration_changed");
-  };
-
-  const handleTableClick = async (tableId, metadata = {}) => {
-    try {
-      const result = await tableActions.handleClick(tableId, metadata);
-
-      if (result.success) {
-        if (floorPlanRef.current) {
-          floorPlanRef.current.highlightTable(tableId);
-        }
-
-        console.log(result.message);
-
-        if (result.requiresRefresh) {
-          await refresh();
-          // 🎯 NEW: Sync table state via WebSocket
-          const table = tables.find((t) => t.id === tableId);
-          if (table) {
-            syncTableState({
-              tableId,
-              newState: result.table.state,
-              metadata,
-            });
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Table click failed:", error);
-      if (floorPlanRef.current) {
-        floorPlanRef.current.showError(tableId, error.message);
-      }
-    }
-  };
-
-  const handleTableDrop = async (tableId, position) => {
-    try {
-      const result = await tableActions.handleDrop(tableId, position);
-
-      if (result.success) {
-        console.log(result.message);
-        await refresh();
-        // 🎯 NEW: Sync table position via WebSocket
-        syncTableState({
-          tableId,
-          position,
-          action: "position_updated",
-        });
-      } else if (result.revertPosition) {
-        await refresh();
-      }
-    } catch (error) {
-      console.error("Table drop failed:", error);
-      await refresh();
-    }
-  };
-
+  // === Floor plan handlers ===
   const checkNeedsPartySize = (tableId) => {
     const table = tables.find((t) => t.id === tableId);
     return table?.state === "available";
   };
 
+  // in Dashboard.jsx
+  const handleTableClick = async (tableId, meta) => {
+    // meta can be: undefined | number | {partySize:number} | <table object>
+    let body = {};
+
+    if (typeof meta === "number") {
+      body.partySize = meta;
+    } else if (meta && typeof meta === "object") {
+      if (typeof meta.partySize === "number") {
+        body.partySize = meta.partySize;
+      } // else it's a table object → ignore
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/api/tables/${tableId}/click`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) {
+        const msg = data?.error || `Failed (HTTP ${res.status})`;
+        floorPlanRef.current?.showError(tableId, msg);
+        return;
+      }
+      floorPlanRef.current?.highlightTable(tableId);
+      await refresh();
+      syncTableState?.({
+        tableId,
+        action: "state_changed",
+        newState: data?.table?.state,
+        partySize: body.partySize ?? null,
+      });
+    } catch (e) {
+      console.error("Table click error:", e);
+      floorPlanRef.current?.showError(tableId, e.message || "Click failed");
+    }
+  };
+
+  const handleTableDrop = async (tableId, position) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/tables/${tableId}/drop`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify(position), // { x, y }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) {
+        console.error("Table drop failed:", data?.error || res.status);
+        await refresh(); // revert on failure
+        return;
+      }
+      await refresh();
+      syncTableState?.({ tableId, position, action: "position_updated" });
+    } catch (e) {
+      console.error("Table drop error:", e);
+      await refresh();
+    }
+  };
+
   const handleSeatParty = async (partyId) => {
     try {
       const result = await seatParty(partyId);
-      // 🎯 NEW: Notify other clients via WebSocket
-      if (result?.success) {
-        requestGlobalRefresh("party_seated");
-      }
+      if (result?.success) requestGlobalRefresh?.("party_seated");
       return result;
-    } catch (error) {
-      console.error("Failed to seat party:", error);
+    } catch (e) {
+      console.error("Failed to seat party:", e);
     }
+  };
+
+  const handleStartNewShift = () => {
+    if (user?.role === "host") onNeedShiftSetup();
+  };
+
+  const handleWaiterUpdate = async () => {
+    await refresh();
+    requestGlobalRefresh?.("waiter_configuration_changed");
   };
 
   const businessMetrics = {
     totalTablesServed: tables.filter((t) => t.state === "occupied").length,
-    fairnessScore: fairnessScore,
+    fairnessScore,
     avgWaitTime:
       waitlist.length > 0
         ? Math.round(
@@ -213,6 +192,28 @@ export const Dashboard = ({ user, onLogout, onNeedShiftSetup }) => {
     activeWaiters: waiters.length,
   };
 
+  if (shift?.isConfigured === false && user?.role === "host") {
+    return (
+      <div className="h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">⚙️</div>
+          <h2 className="text-xl font-semibold text-gray-700 mb-2">
+            Shift Setup Required
+          </h2>
+          <p className="text-gray-500 mb-6">
+            Configure tonight&apos;s server sections
+          </p>
+          <button
+            onClick={onNeedShiftSetup}
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
+          >
+            Setup Shift
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <ThreePanelLayout
@@ -224,8 +225,7 @@ export const Dashboard = ({ user, onLogout, onNeedShiftSetup }) => {
           shift?.isConfigured ? () => setShowWaiterManager(true) : null
         }
         onStartNewShift={user?.role === "host" ? handleStartNewShift : null}
-        // 🎯 NEW: Show WebSocket connection status
-        isConnected={isConnected}
+        isConnected={!!isConnected}
       >
         <LeftPanel>
           <WaitlistPanel

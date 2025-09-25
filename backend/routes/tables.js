@@ -232,10 +232,10 @@ router.post("/:tableId/drop", authenticateToken, async (req, res) => {
     const { x, y } = req.body;
 
     // Check permissions
-    if (req.user.role !== "manager") {
+    if (req.user.role !== "host") {
       return res.status(403).json({
         success: false,
-        error: "Only managers can reposition tables",
+        error: "Only hosts can reposition tables",
       });
     }
 
@@ -522,7 +522,7 @@ function getAvailableActions(table, user) {
     });
   }
 
-  if (user.role === "manager") {
+  if (user.role === "host") {
     actions.push({
       action: "move_table",
       label: "Reposition Table",
