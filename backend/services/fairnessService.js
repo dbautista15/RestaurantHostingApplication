@@ -36,35 +36,40 @@ class FairnessService {
   }
 
   async buildMatrixFromAuditTrail(waiters) {
-    const matrix = Array(waiters.length)
-      .fill()
-      .map(() => Array(6).fill(0));
+    // rows = waiters, cols = party sizes 1..6 (index 0..5)
+    const matrix = Array.from({ length: waiters.length }, () =>
+      Array(6).fill(0)
+    );
 
-    // Get today's assignments from audit trail
+    // fast lookup: waiterId (string) -> row index
+    const idToIndex = new Map(waiters.map((w, i) => [w._id.toString(), i]));
+
+    // today only
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    // we only need ids + party size; populate not required, but harmless
     const assignments = await AuditEvent.find({
       eventType: "ASSIGNMENT",
       createdAt: { $gte: today },
-    }).populate("userId");
+    }).select("userId metadata.partySize metadata.waiterId createdAt");
 
-    // Build matrix from actual assignments
-    assignments.forEach((assignment) => {
-      if (!assignment.metadata?.partySize) return;
+    // attribute credit to the *waiter* who took the table
+    for (const a of assignments) {
+      const partySize = Number(a?.metadata?.partySize);
+      if (!Number.isFinite(partySize)) continue;
 
-      const waiterIndex = waiters.findIndex(
-        (w) => w._id.toString() === assignment.userId?._id.toString()
-      );
+      // prefer waiterId; fallback to userId for old events
+      const waiterIdStr =
+        a?.metadata?.waiterId?.toString?.() ?? a?.userId?.toString?.();
+      if (!waiterIdStr) continue;
 
-      if (waiterIndex >= 0) {
-        const partySizeIndex = Math.min(
-          5,
-          Math.max(0, assignment.metadata.partySize - 1)
-        );
-        matrix[waiterIndex][partySizeIndex]++;
-      }
-    });
+      const row = idToIndex.get(waiterIdStr);
+      if (row === undefined) continue; // event for someone not in today's waiter list
+
+      const col = Math.min(5, Math.max(0, partySize - 1)); // 1..6 -> 0..5
+      matrix[row][col] += 1;
+    }
 
     return matrix;
   }
